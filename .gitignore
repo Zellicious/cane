@@ -1,0 +1,11 @@
+build/
+*.o
+demo/
+cane
+.vscode/
+.idea/
+*.swp
+*.sh
+*.zip
+*.7z
+.DS_Store
