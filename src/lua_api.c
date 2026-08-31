@@ -7,8 +7,28 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "engine/audio.h"
+#include "engine/vfs.h"
 
 static GLFWwindow *s_window = NULL;
+
+static char s_input_queue[256] = "";
+static size_t s_input_queue_len = 0;
+
+static void char_callback(GLFWwindow *window, unsigned int codepoint) {
+    (void)window;
+    if (codepoint > 127) return; // ASCII only, keeps this minimal
+    if (s_input_queue_len < sizeof(s_input_queue) - 1) {
+        s_input_queue[s_input_queue_len++] = (char)codepoint;
+        s_input_queue[s_input_queue_len] = '\0';
+    }
+}
+
+static int l_poll_text_input(lua_State *L) {
+    lua_pushstring(L, s_input_queue);
+    s_input_queue_len = 0;
+    s_input_queue[0] = '\0';
+    return 1;
+}
 
 static int l_sound_new(lua_State *L) {
     const char *path = luaL_checkstring(L, 1);
@@ -76,6 +96,11 @@ int get_glfw_key(const char *name) {
     if (strcmp(name, "down") == 0) return GLFW_KEY_DOWN;
     if (strcmp(name, "left") == 0) return GLFW_KEY_LEFT;
     if (strcmp(name, "right") == 0) return GLFW_KEY_RIGHT;
+
+    if (strcmp(name, "tab") == 0) return GLFW_KEY_TAB;
+    if (strcmp(name, "return") == 0) return GLFW_KEY_ENTER; // GLFW has no GLFW_KEY_RETURN
+    if (strcmp(name, "escape") == 0) return GLFW_KEY_ESCAPE;
+    if (strcmp(name, "backspace") == 0) return GLFW_KEY_BACKSPACE;
 
     if (strcmp(name, "ctrl") == 0 || strcmp(name, "lctrl") == 0) return GLFW_KEY_LEFT_CONTROL;
     if (strcmp(name, "rctrl") == 0) return GLFW_KEY_RIGHT_CONTROL;
@@ -298,8 +323,6 @@ static float table_field_num(lua_State *L, int idx, const char *key, float def) 
     return v;
 }
 
-
-
 static Vertex* read_vertex_array(lua_State *L, int idx, int *out_count) {
     luaL_checktype(L, idx, LUA_TTABLE);
     int n = (int)lua_objlen(L, idx);
@@ -362,9 +385,6 @@ static int l_mesh_set_vertices(lua_State *L) {
     return 0;
 }
 
-
-
-
 static int l_mesh_draw(lua_State *L) {
     Mesh **ud = luaL_checkudata(L, 1, "Mesh");
     GLuint tex = 0;
@@ -388,8 +408,6 @@ static const luaL_Reg mesh_methods[] = {
     {NULL, NULL}
 };
 
-
-
 static int l_shader_new(lua_State *L) {
     const char *vert_path = luaL_checkstring(L, 1);
     const char *frag_path = luaL_checkstring(L, 2);
@@ -410,7 +428,6 @@ static int l_shader_gc(lua_State *L) {
     return 0;
 }
 
-
 static int l_shader_send(lua_State *L) {
     Shader **ud = luaL_checkudata(L, 1, "Shader");
     const char *name = luaL_checkstring(L, 2);
@@ -420,13 +437,7 @@ static int l_shader_send(lua_State *L) {
 
     if (nargs == 1) {
         if (lua_istable(L, 3)) {
-            // LuaJIT compatible table length check
-            lua_pushnil(L);
-            int len = 0;
-            while (lua_next(L, 3) != 0) {
-                len++;
-                lua_pop(L, 1);
-            }
+            int len = (int)lua_objlen(L, 3);
 
             if (len == 16) {
                 float m[16];
@@ -448,13 +459,10 @@ static int l_shader_send(lua_State *L) {
                 return luaL_error(L, "shader:send matrix table must have 9 elements (mat3) or 16 elements (mat4)");
             }
         } else {
-            // LuaJIT numbers are doubles
-            double val = luaL_checknumber(L, 3);
-            if (val == (double)(int)val && !lua_isstring(L, 3)) {
-                shader_set_int(*ud, name, (int)val);
-            } else {
-                shader_set_float(*ud, name, (float)val);
-            }
+            // Always float. A whole-number value like 2.0 is ambiguous with
+            // an int uniform, so guessing is unreliable — use
+            // shader:sendInt explicitly when you actually need an int.
+            shader_set_float(*ud, name, (float)luaL_checknumber(L, 3));
         }
     } else if (nargs == 2) {
         shader_set_vec2(*ud, name, (float)luaL_checknumber(L, 3), (float)luaL_checknumber(L, 4));
@@ -496,8 +504,6 @@ static int l_set_shader(lua_State *L) {
     return 0;
 }
 
-
-
 static int l_get_dimensions(lua_State *L) {
     int width = 0, height = 0;
     if (g_app.window) {
@@ -510,7 +516,6 @@ static int l_get_dimensions(lua_State *L) {
     lua_pushinteger(L, height);
     return 2;
 }
-
 
 static int l_set_perspective(lua_State *L) {
     float fovy = (float)luaL_optnumber(L, 1, 60.0);
@@ -547,10 +552,10 @@ static int l_set_camera_look(lua_State *L) {
     float z = (float)luaL_optnumber(L, 3, 0.0);
     float yaw = (float)luaL_optnumber(L, 4, 0.0);
     float pitch = (float)luaL_optnumber(L, 5, 0.0);
-    gfx_set_camera_look(x, y, z, yaw, pitch);
+    float roll = (float)luaL_optnumber(L, 6, 0.0);
+    gfx_set_camera_look(x, y, z, yaw, pitch, roll);
     return 0;
 }
-
 
 static int l_set_color(lua_State *L) {
     gfx_set_color((float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2),
@@ -592,13 +597,44 @@ static int l_print_text(lua_State *L) {
     return 0;
 }
 
-
 static void register_type(lua_State *L, const char *name, const luaL_Reg *methods) {
     luaL_newmetatable(L, name);
     lua_pushvalue(L, -1);
     lua_setfield(L, -2, "__index");
     luaL_setfuncs(L, methods, 0);
     lua_pop(L, 1);
+}
+
+static int l_quit(lua_State *L) {
+    (void)L;
+    if (s_window) glfwSetWindowShouldClose(s_window, GLFW_TRUE);
+    return 0;
+}
+
+static int l_get_text_width(lua_State *L) {
+    const char *text = luaL_checkstring(L, 1);
+    float scale = (float)luaL_optnumber(L, 2, 1.0);
+    lua_pushnumber(L, gfx_get_text_width(text, scale));
+    return 1;
+}
+
+// write_file(name, data) -> true/false
+static int l_write_file(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    size_t len;
+    const char *data = luaL_checklstring(L, 2, &len);
+    lua_pushboolean(L, vfs_write_file(name, data, len));
+    return 1;
+}
+
+// read_file(name) -> string or nil
+static int l_read_file(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    char *text = vfs_read_save_text(name);
+    if (!text) { lua_pushnil(L); return 1; }
+    lua_pushstring(L, text);
+    free(text);
+    return 1;
 }
 
 void lua_api_register(lua_State *L, GLFWwindow *window) {
@@ -615,7 +651,7 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "new_canvas", l_canvas_new);
     lua_register(L, "set_canvas", l_set_canvas);
     lua_register(L, "get_active_canvas", l_get_active_canvas);
-    
+
     lua_register(L, "new_mesh", l_mesh_new);
     lua_register(L, "new_shader", l_shader_new);
     lua_register(L, "set_shader", l_set_shader);
@@ -626,6 +662,10 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "set_camera_look", l_set_camera_look);
 
     lua_register(L, "get_dimensions", l_get_dimensions);
+    lua_register(L, "quit", l_quit);
+    lua_register(L, "get_text_width", l_get_text_width);
+    lua_register(L, "write_file", l_write_file);
+    lua_register(L, "read_file", l_read_file);
 
     register_type(L, "Image", image_methods);
     register_type(L, "Canvas", canvas_methods);
@@ -638,6 +678,9 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
 
     lua_register(L, "new_sound", l_sound_new);
     register_type(L, "Sound", sound_methods);
+
+    glfwSetCharCallback(window, char_callback);
+    lua_register(L, "poll_text_input", l_poll_text_input);
 }
 
 void lua_api_call_global(lua_State *L, const char *func, int nargs) {

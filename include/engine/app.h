@@ -15,6 +15,7 @@ typedef struct {
     int width;
     int height;
     char title[128];
+    char identity[64];
     int msaa;           // e.g., 0, 2, 4, 8 samples
     bool highdpi;       // Enable HighDPI / Retina scale support
     bool resizable;     // Allow window resizing

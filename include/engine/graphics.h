@@ -32,6 +32,8 @@ void gfx_draw_image_shader(Image *img, float x, float y, float scale, Shader *sh
 void gfx_image_set_filter(Image *img, const char *min_filter, const char *mag_filter);
 void gfx_canvas_set_filter(Canvas *c, const char *min_filter, const char *mag_filter);
 
+float gfx_get_text_width(const char *text, float scale);
+
 typedef struct { float x, y, z, u, v, r, g, b, a; } Vertex;
 
 typedef struct {
@@ -63,7 +65,7 @@ void gfx_get_dimensions(int *width, int *height);
 void gfx_set_projection(int width, int height);
 void gfx_set_perspective(int width, int height, float fovy_deg, float near, float far);
 void gfx_set_camera(float x, float y, float z);
-void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg);
+void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg);
 
 void gfx_set_shader(Shader *shader);
 

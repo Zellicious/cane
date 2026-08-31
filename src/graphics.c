@@ -79,6 +79,13 @@ static void mat4_rotate_y(float m[16], float rad) {
     m[8] = s;  m[10] = c;
 }
 
+static void mat4_rotate_z(float m[16], float rad) {
+    mat4_identity(m);
+    float c = cosf(rad), s = sinf(rad);
+    m[0] = c;  m[1] = s;
+    m[4] = -s; m[5] = c;
+}
+
 // result = a * b (column-major)
 static void mat4_mul(float result[16], const float a[16], const float b[16]) {
     float tmp[16];
@@ -297,20 +304,23 @@ void gfx_set_perspective(int width, int height, float fovy_deg, float near, floa
 }
 
 void gfx_set_camera(float x, float y, float z) {
-    gfx_set_camera_look(x, y, z, 0.0f, 0.0f);
+    gfx_set_camera_look(x, y, z, 0.0f, 0.0f, 0.0f);
 }
 
-void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg) {
+void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg) {
     float yaw_rad = yaw_deg * ((float)M_PI / 180.0f);
     float pitch_rad = pitch_deg * ((float)M_PI / 180.0f);
+    float roll_rad = roll_deg * ((float)M_PI / 180.0f);
 
-    float t[16], ry[16], rx[16], tmp[16];
+    float t[16], ry[16], rx[16], rz[16], tmp1[16], tmp2[16];
     mat4_translate(t, -x, -y, -z);
     mat4_rotate_y(ry, -yaw_rad);
     mat4_rotate_x(rx, -pitch_rad);
+    mat4_rotate_z(rz, -roll_rad);
 
-    mat4_mul(tmp, ry, t);          // ry * t
-    mat4_mul(g_cur_view, rx, tmp); // rx * (ry * t)
+    mat4_mul(tmp1, ry, t);          // ry * t
+    mat4_mul(tmp2, rx, tmp1);       // rx * (ry * t)
+    mat4_mul(g_cur_view, rz, tmp2); // rz * (rx * (ry * t))
 }
 
 void gfx_set_shader(Shader *shader) {
@@ -675,4 +685,16 @@ void gfx_print_text(const char *text, float x, float y, float scale) {
 
         x += (glyph->advance >> 6) * scale;
     }
+}
+
+float gfx_get_text_width(const char *text, float scale) {
+    if (!g_app.face || !text) return 0.0f;
+
+    float width = 0.0f;
+    for (const unsigned char *p = (const unsigned char*)text; *p; p++) {
+        GlyphEntry *glyph = get_glyph(*p);
+        if (!glyph) continue;
+        width += (glyph->advance >> 6) * scale;
+    }
+    return width;
 }

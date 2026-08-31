@@ -11,7 +11,7 @@ AppContext g_app = {0};
 
 static WindowConfig load_config(lua_State *L) {
     WindowConfig cfg = {
-        .width = 800, .height = 600, .title = "Window",
+        .width = 800, .height = 600, .title = "Window", .identity = "game",
         .msaa = 0, .highdpi = false, .resizable = true,
         .min_width = -1, .min_height = -1, .vsync = true
     };
@@ -26,6 +26,9 @@ static WindowConfig load_config(lua_State *L) {
         lua_pop(L, 1);
         lua_getfield(L, -1, "title");
         if (lua_isstring(L, -1)) snprintf(cfg.title, sizeof(cfg.title), "%s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "identity");
+        if (lua_isstring(L, -1)) vfs_set_identity(lua_tostring(L, -1));
         lua_pop(L, 1);
         lua_getfield(L, -1, "msaa");
         if (lua_isnumber(L, -1)) cfg.msaa = (int)lua_tointeger(L, -1);
@@ -82,14 +85,22 @@ bool app_init(AppContext *app, const char *lua_script) {
         app_cleanup(app);
         return false;
     }
-    if (luaL_loadbuffer(app->L, src, strlen(src), lua_script) != LUA_OK ||
-        lua_pcall(app->L, 0, LUA_MULTRET, 0) != LUA_OK) {
-        fprintf(stderr, "lua script error: %s\n", lua_tostring(app->L, -1));
-        vfs_free(src);
+    size_t data_len = 0;
+    char *data = vfs_read_binary(lua_script, &data_len);
+    if (!data) {
+        fprintf(stderr, "lua script error: could not read %s\n", lua_script);
         app_cleanup(app);
         return false;
     }
-    vfs_free(src);
+
+    if (luaL_loadbuffer(app->L, data, data_len, lua_script) != LUA_OK ||
+        lua_pcall(app->L, 0, LUA_MULTRET, 0) != LUA_OK) {
+        fprintf(stderr, "lua script error: %s\n", lua_tostring(app->L, -1));
+        vfs_free(data);
+        app_cleanup(app);
+        return false;
+    }
+    vfs_free(data);
 
     app->config = load_config(app->L);
     app->current_canvas = NULL;

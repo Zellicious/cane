@@ -8,7 +8,7 @@ global table read at startup from `main.lua`.
 
 ```lua
 config = {
-    width = 800, height = 600, title = "Window",
+    width = 800, height = 600, title = "Window", identity = "game",
     msaa = 0, highdpi = false, resizable = true,
     minwidth = -1, minheight = -1, vsync = true
 }
@@ -23,6 +23,13 @@ config = {
 | `render()` | every frame, after `update` |
 | `resize(w, h)` | optional, on window resize |
 
+## app control
+
+```lua
+quit()                    -- closes the window, ends the app loop
+get_dimensions() -> width, height
+```
+
 ## drawing (2d)
 
 ```lua
@@ -32,7 +39,7 @@ draw_rectangle(mode, x, y, w, h)   -- mode: "fill" | "line"
 draw_triangle(mode, x1,y1, x2,y2, x3,y3)
 draw_circle(mode, cx, cy, radius, segments)
 print_text(str, x, y, scale)
-get_dimensions() -> width, height
+get_text_width(str, scale) -> width  -- for centering/aligning text before drawing it
 ```
 
 ## images
@@ -49,7 +56,7 @@ img:setFilter(min, mag)  -- "nearest" | "linear"
 
 ```lua
 canvas = new_canvas(w, h)
-set_canvas(canvas)           -- nil to draw to screen
+set_canvas(canvas)            -- nil to draw to screen
 get_active_canvas() -> canvas -- returns active Canvas userdata or nil if screen targeted
 canvas:draw(x, y, w, h)
 canvas:getWidth() / canvas:getHeight()
@@ -106,6 +113,16 @@ is_key_down(name) -> bool
 
 get_mouse_pos() -> x, y
 is_mouse_down(button)  -- 1=left, 2=right, 3=middle
+poll_text_input()      -- returns text input
+```
+
+## saving / loading
+
+files are written to a real per-OS user data directory (not inside a fused builds zip), so save data persists across app updates and works the same in fused or loose builds.
+
+```lua
+write_file(name, data) -> true/false
+read_file(name) -> string or nil
 ```
 
 ## modules
