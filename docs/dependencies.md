@@ -21,4 +21,4 @@ brew install glfw freetype luajit physfs
 ```bash
 sudo pacman -S glfw freetype2 luajit physfs
 ```
-after installing, `pkg-config --cflags --libs freetype2 luajit physfs` should return non-empty output — if not, the Makefile's `PKG_CFLAGS`/`PKG_LIBS` will silently come up empty and the build will fail with missing header/link errors.
+after installing, `pkg-config --cflags --libs freetype2 luajit physfs` should return non-empty output - if not, the Makefile's `PKG_CFLAGS`/`PKG_LIBS` will silently come up empty and the build will fail with missing header/link errors.

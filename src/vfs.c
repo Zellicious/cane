@@ -31,9 +31,8 @@ unsigned char* vfs_read_file(const char *path, size_t *out_size) {
     resolve_path(path, full, sizeof(full));
 
     if (g_fused) {
-        if (!PHYSFS_exists(full)) return NULL;
         PHYSFS_File *f = PHYSFS_openRead(full);
-        if (!f) return NULL;
+        if (!f) return NULL; // covers "doesnt exist" too, no need for a separate PHYSFS_exists check
 
         PHYSFS_sint64 len = PHYSFS_fileLength(f);
         if (len < 0) { PHYSFS_close(f); return NULL; }

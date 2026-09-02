@@ -152,6 +152,40 @@ static int l_is_mouse_down(lua_State *L) {
     return 1;
 }
 
+static int l_font_new(lua_State *L) {
+    const char *path = luaL_checkstring(L, 1);
+    int pixel_size = (int)luaL_optinteger(L, 2, 24);
+    Font *font = gfx_font_load(path, pixel_size);
+    if (!font) { lua_pushnil(L); return 1; }
+
+    Font **ud = lua_newuserdata(L, sizeof(Font*));
+    *ud = font;
+    luaL_getmetatable(L, "Font");
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+static int l_font_gc(lua_State *L) {
+    Font **ud = luaL_checkudata(L, 1, "Font");
+    gfx_font_free(*ud);
+    return 0;
+}
+
+static const luaL_Reg font_methods[] = {
+    {"__gc", l_font_gc},
+    {NULL, NULL}
+};
+
+static int l_set_font(lua_State *L) {
+    if (lua_isnoneornil(L, 1)) {
+        gfx_set_font(NULL);
+    } else {
+        Font **ud = luaL_checkudata(L, 1, "Font");
+        gfx_set_font(*ud);
+    }
+    return 0;
+}
+
 static int l_image_new(lua_State *L) {
     const char *path = luaL_checkstring(L, 1);
     Image *img = gfx_image_load(path);
@@ -648,6 +682,8 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "print_text", l_print_text);
 
     lua_register(L, "new_image", l_image_new);
+    lua_register(L, "new_font", l_font_new);
+    lua_register(L, "set_font", l_set_font);
     lua_register(L, "new_canvas", l_canvas_new);
     lua_register(L, "set_canvas", l_set_canvas);
     lua_register(L, "get_active_canvas", l_get_active_canvas);
@@ -668,6 +704,7 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "read_file", l_read_file);
 
     register_type(L, "Image", image_methods);
+    register_type(L, "Font", font_methods);
     register_type(L, "Canvas", canvas_methods);
     register_type(L, "Mesh", mesh_methods);
     register_type(L, "Shader", shader_methods);

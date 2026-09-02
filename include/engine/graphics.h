@@ -71,4 +71,10 @@ void gfx_set_shader(Shader *shader);
 
 Shader* gfx_default_shader(void);
 
+typedef struct Font Font;
+
+Font* gfx_font_load(const char *path, int pixel_size);
+void gfx_font_free(Font *font);
+void gfx_set_font(Font *font); // NULL = embedded default font
+
 #endif

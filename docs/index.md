@@ -84,6 +84,13 @@ set_shader(shader)  -- nil resets to default; affects all drawing until changed
 
 built-in uniforms set automatically: `uProjection`, `uView`.
 
+## fonts
+
+```lua
+font = new_font(path, pixel_size)  -- pixel_size optional, defaults to 24
+set_font(font)                     -- nil resets to default font
+```
+
 ## camera / projection
 
 ```lua

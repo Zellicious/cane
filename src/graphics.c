@@ -157,13 +157,22 @@ typedef struct {
 #define GLYPH_CACHE_SIZE 128
 static GlyphEntry g_glyph_cache[GLYPH_CACHE_SIZE];
 
-static GlyphEntry* get_glyph(unsigned char c) {
-    if (c >= GLYPH_CACHE_SIZE) return NULL;
-    GlyphEntry *g = &g_glyph_cache[c];
+struct Font {
+    FT_Face face;
+    unsigned char *data; // backing buffer FT_New_Memory_Face reads from directly;
+                          // FreeType doesn't copy it, so it must outlive the face
+    GlyphEntry cache[GLYPH_CACHE_SIZE];
+};
+
+static Font *g_active_font = NULL;
+
+static GlyphEntry* get_glyph(FT_Face face, GlyphEntry *cache, unsigned char c) {
+    if (!face || c >= GLYPH_CACHE_SIZE) return NULL;
+    GlyphEntry *g = &cache[c];
     if (g->loaded) return g;
 
-    if (FT_Load_Char(g_app.face, c, FT_LOAD_RENDER)) return NULL;
-    FT_GlyphSlot slot = g_app.face->glyph;
+    if (FT_Load_Char(face, c, FT_LOAD_RENDER)) return NULL;
+    FT_GlyphSlot slot = face->glyph;
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, slot->bitmap.pitch);
@@ -195,6 +204,51 @@ static void glyph_cache_clear(void) {
             g_glyph_cache[i].loaded = false;
         }
     }
+}
+
+Font* gfx_font_load(const char *path, int pixel_size) {
+    size_t size;
+    unsigned char *data = vfs_read_file(path, &size);
+    if (!data) {
+        fprintf(stderr, "font: failed to read %s\n", path);
+        return NULL;
+    }
+
+    Font *f = malloc(sizeof(Font));
+    if (!f) { vfs_free(data); return NULL; }
+    memset(f->cache, 0, sizeof(f->cache));
+
+    FT_Error err = FT_New_Memory_Face(g_app.ft, data, (FT_Long)size, 0, &f->face);
+    if (err) {
+        fprintf(stderr, "font: failed to load %s (FreeType error %d)\n", path, err);
+        vfs_free(data);
+        free(f);
+        return NULL;
+    }
+
+    FT_Set_Pixel_Sizes(f->face, 0, pixel_size > 0 ? pixel_size : 24);
+    f->data = data;
+    return f;
+}
+
+void gfx_font_free(Font *font) {
+    if (!font) return;
+
+    if (g_active_font == font) g_active_font = NULL;
+
+    for (int i = 0; i < GLYPH_CACHE_SIZE; i++) {
+        if (font->cache[i].loaded) glDeleteTextures(1, &font->cache[i].texture);
+    }
+    if (font && font->face) {
+        FT_Done_Face(font->face);
+        font->face = NULL;
+    }
+    vfs_free(font->data);
+    free(font);
+}
+
+void gfx_set_font(Font *font) {
+    g_active_font = font;
 }
 
 static Mesh *g_scratch_mesh = NULL;
@@ -656,13 +710,15 @@ void gfx_draw_circle(bool fill, float cx, float cy, float radius, int segments) 
 }
 
 void gfx_print_text(const char *text, float x, float y, float scale) {
-    if (!g_app.face) return;
+    FT_Face face = g_active_font ? g_active_font->face : g_app.face;
+    GlyphEntry *cache = g_active_font ? g_active_font->cache : g_glyph_cache;
+    if (!face) return;
 
     float r = cur_color[0], g = cur_color[1], b = cur_color[2], a = cur_color[3];
-    float ascender = (float)(g_app.face->size->metrics.ascender >> 6);
+    float ascender = (float)(face->size->metrics.ascender >> 6);
 
     for (const unsigned char *p = (const unsigned char*)text; *p; p++) {
-        GlyphEntry *glyph = get_glyph(*p);
+        GlyphEntry *glyph = get_glyph(face, cache, *p);
         if (!glyph) continue;
 
         if (glyph->width > 0 && glyph->height > 0) {
@@ -688,11 +744,13 @@ void gfx_print_text(const char *text, float x, float y, float scale) {
 }
 
 float gfx_get_text_width(const char *text, float scale) {
-    if (!g_app.face || !text) return 0.0f;
+    FT_Face face = g_active_font ? g_active_font->face : g_app.face;
+    GlyphEntry *cache = g_active_font ? g_active_font->cache : g_glyph_cache;
+    if (!face || !text) return 0.0f;
 
     float width = 0.0f;
     for (const unsigned char *p = (const unsigned char*)text; *p; p++) {
-        GlyphEntry *glyph = get_glyph(*p);
+        GlyphEntry *glyph = get_glyph(face, cache, *p);
         if (!glyph) continue;
         width += (glyph->advance >> 6) * scale;
     }

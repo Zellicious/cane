@@ -79,14 +79,8 @@ bool app_init(AppContext *app, const char *lua_script) {
     luaL_openlibs(app->L);
     vfs_install_lua_loader(app->L);
 
-    char *src = vfs_read_text(lua_script);
-    if (!src) {
-        fprintf(stderr, "lua script error: could not read %s\n", lua_script);
-        app_cleanup(app);
-        return false;
-    }
     size_t data_len = 0;
-    char *data = vfs_read_binary(lua_script, &data_len);
+    char *data = (char*)vfs_read_binary(lua_script, &data_len);
     if (!data) {
         fprintf(stderr, "lua script error: could not read %s\n", lua_script);
         app_cleanup(app);
@@ -179,16 +173,28 @@ void app_run(AppContext *app) {
 }
 
 void app_cleanup(AppContext *app) {
-    if (app->L) lua_gc(app->L, LUA_GCCOLLECT, 0);
+    if (app->L) {
+        lua_close(app->L);
+        app->L = NULL;
+    }
+
+    if (app->face) {
+        FT_Done_Face(app->face);
+        app->face = NULL;
+    }
 
     gfx_cleanup();
     audio_cleanup();
 
-    if (app->face) { FT_Done_Face(app->face); app->face = NULL; }
-    if (app->ft) { FT_Done_FreeType(app->ft); app->ft = NULL; }
-    if (app->window) { glfwDestroyWindow(app->window); app->window = NULL; }
+    if (app->ft) {
+        FT_Done_FreeType(app->ft);
+        app->ft = NULL;
+    }
+    if (app->window) {
+        glfwDestroyWindow(app->window);
+        app->window = NULL;
+    }
 
     glfwTerminate();
-
-    if (app->L) { lua_close(app->L); app->L = NULL; }
 }
+
