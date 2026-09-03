@@ -1,4 +1,5 @@
 #include "engine/shader.h"
+#include "engine/graphics.h"
 #include "engine/vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +82,7 @@ Shader* shader_load(const char *vert_path, const char *frag_path) {
 
 void shader_free(Shader *s) {
     if (!s) return;
+    gfx_clear_shader_if_active(s);
     if (s->program) glDeleteProgram(s->program);
     free(s);
 }

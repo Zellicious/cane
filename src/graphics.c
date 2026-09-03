@@ -159,8 +159,7 @@ static GlyphEntry g_glyph_cache[GLYPH_CACHE_SIZE];
 
 struct Font {
     FT_Face face;
-    unsigned char *data; // backing buffer FT_New_Memory_Face reads from directly;
-                          // FreeType doesn't copy it, so it must outlive the face
+    unsigned char *data;
     GlyphEntry cache[GLYPH_CACHE_SIZE];
 };
 
@@ -361,6 +360,39 @@ void gfx_set_camera(float x, float y, float z) {
     gfx_set_camera_look(x, y, z, 0.0f, 0.0f, 0.0f);
 }
 
+void gfx_set_camera_lookat(float x1, float y1, float z1, float x2, float y2, float z2) {
+    float fx = x2 - x1;
+    float fy = y2 - y1;
+    float fz = z2 - z1;
+    float flen = sqrtf(fx * fx + fy * fy + fz * fz);
+    if (flen > 0.00001f) {
+        fx /= flen; fy /= flen; fz /= flen;
+    } else {
+        fx = 0.0f; fy = 0.0f; fz = -1.0f;
+    }
+
+    float ux = 0.0f, uy = 1.0f, uz = 0.0f;
+    float rx = uy * fz - uz * fy;
+    float ry = uz * fx - ux * fz;
+    float rz = ux * fy - uy * fx;
+    float rlen = sqrtf(rx * rx + ry * ry + rz * rz);
+    if (rlen > 0.00001f) {
+        rx /= rlen; ry /= rlen; rz /= rlen;
+    } else {
+        rx = 1.0f; ry = 0.0f; rz = 0.0f;
+    }
+
+    ux = fy * rz - fz * ry;
+    uy = fz * rx - fx * rz;
+    uz = fx * ry - fy * rx;
+
+    memset(g_cur_view, 0, sizeof(float) * 16);
+    g_cur_view[0] = rx;  g_cur_view[4] = ry;  g_cur_view[8]  = rz;  g_cur_view[12] = -(rx * x1 + ry * y1 + rz * z1);
+    g_cur_view[1] = ux;  g_cur_view[5] = uy;  g_cur_view[9]  = uz;  g_cur_view[13] = -(ux * x1 + uy * y1 + uz * z1);
+    g_cur_view[2] = -fx; g_cur_view[6] = -fy; g_cur_view[10] = -fz; g_cur_view[14] = -(-fx * x1 - fy * y1 - fz * z1);
+    g_cur_view[3] = 0.0f; g_cur_view[7] = 0.0f; g_cur_view[11] = 0.0f; g_cur_view[15] = 1.0f;
+}
+
 void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg) {
     float yaw_rad = yaw_deg * ((float)M_PI / 180.0f);
     float pitch_rad = pitch_deg * ((float)M_PI / 180.0f);
@@ -379,6 +411,10 @@ void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_d
 
 void gfx_set_shader(Shader *shader) {
     g_active_shader = shader;
+}
+
+void gfx_clear_shader_if_active(Shader *shader) {
+    if (g_active_shader == shader) g_active_shader = NULL;
 }
 
 Shader* gfx_default_shader(void) {
@@ -538,6 +574,32 @@ void gfx_draw_image_shader(Image *img, float x, float y, float scale, Shader *sh
         {x,     y,     0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
         {x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
         {x,     y + h, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}
+    };
+
+    Shader *target_shader = shader ? shader : (g_active_shader ? g_active_shader : g_main_shader);
+    scratch_draw_ex(verts, 6, GL_TRIANGLES, img->texture, target_shader);
+}
+
+void gfx_draw_image_quad(Image *img, float sx, float sy, float sw, float sh,
+                          float dx, float dy, float scale, Shader *shader) {
+    if (!img || img->width <= 0 || img->height <= 0) return;
+
+    float u0 = sx / (float)img->width;
+    float v0 = sy / (float)img->height;
+    float u1 = (sx + sw) / (float)img->width;
+    float v1 = (sy + sh) / (float)img->height;
+
+    float w = sw * scale;
+    float h = sh * scale;
+
+    Vertex verts[6] = {
+        {dx,     dy,     0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f},
+        {dx + w, dy,     0, u1, v0, 1.0f, 1.0f, 1.0f, 1.0f},
+        {dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f},
+
+        {dx,     dy,     0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f},
+        {dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f},
+        {dx,     dy + h, 0, u0, v1, 1.0f, 1.0f, 1.0f, 1.0f}
     };
 
     Shader *target_shader = shader ? shader : (g_active_shader ? g_active_shader : g_main_shader);

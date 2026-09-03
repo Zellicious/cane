@@ -48,6 +48,11 @@ get_text_width(str, scale) -> width  -- for centering/aligning text before drawi
 img = new_image(path)
 img:draw(x, y, scale)
 img:drawShader(x, y, scale, shader)  -- shader optional, nil = default
+img:drawQuad(sx, sy, sw, sh, dx, dy, scale, shader)
+-- draws a sub-rectangle of the image (source coords in pixels, top-left origin)
+-- at (dx, dy). scale and shader both optional. this is the sprite-sheet /
+-- tile-atlas primitive — img:draw always draws the whole texture, this draws
+-- one frame of it.
 img:getWidth() / img:getHeight()
 img:setFilter(min, mag)  -- "nearest" | "linear"
 ```
@@ -97,7 +102,8 @@ set_font(font)                     -- nil resets to default font
 set_ortho()                                  -- 2D screen-space (default)
 set_perspective(fovy_deg, near, far)
 set_camera(x, y, z)                          -- translate-only
-set_camera_look(x, y, z, yaw_deg, pitch_deg)  -- full fly camera
+set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- full fly camera
+set_camera_lookat(x2, y2, z2, x2, y2, z2)  -- look but better
 ```
 
 ## audio
@@ -116,16 +122,33 @@ snd:setPitch(1.0)  -- 1.0 = normal
 ```lua
 is_key_down(name) -> bool
 -- names: single letters/digits, "space", "up"/"down"/"left"/"right",
--- "ctrl"/"lctrl"/"rctrl", "shift"/"lshift"/"rshift", "alt"/"lalt"/"ralt"
+-- "ctrl"/"lctrl"/"rctrl", "shift"/"lshift"/"rshift", "alt"/"lalt"/"ralt",
+-- "tab", "return", "escape", "backspace"
 
 get_mouse_pos() -> x, y
 is_mouse_down(button)  -- 1=left, 2=right, 3=middle
-poll_text_input()      -- returns text input
+get_scroll() -> dx, dy  -- accumulated scroll delta since the last call, then reset
+set_cursor_visible(bool)
+
+set_mouse_relative(bool)
+-- locks and hides the cursor, enabling raw
+-- motion input where the platform supports it (bypasses OS pointer
+-- acceleration) get_mouse_pos() returns an unbounded
+-- virtual position, not real screen coordinates - use get_mouse_delta()
+-- instead.
+get_mouse_delta() -> dx, dy
+-- motion since the last call. Call once per frame (e.g. from update())
+-- while set_mouse_relative(true) is active.
+
+poll_text_input() -> string
+-- returns typed characters (ASCII) queued since the last call, then clears
+-- the queue. Use for text input boxes; is_key_down alone can't distinguish
+-- shifted/symbol characters the way this can.
 ```
 
 ## saving / loading
 
-files are written to a real per-OS user data directory (not inside a fused builds zip), so save data persists across app updates and works the same in fused or loose builds.
+files are written to a real per-OS user data directory (not inside a fused build's zip), so save data persists across app updates and works the same in fused or loose builds.
 
 ```lua
 write_file(name, data) -> true/false

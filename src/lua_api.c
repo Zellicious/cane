@@ -23,6 +23,71 @@ static void char_callback(GLFWwindow *window, unsigned int codepoint) {
     }
 }
 
+static double s_scroll_x = 0.0;
+static double s_scroll_y = 0.0;
+
+static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+    (void)window;
+    s_scroll_x += xoffset;
+    s_scroll_y += yoffset;
+}
+
+static int l_get_scroll(lua_State *L) {
+    lua_pushnumber(L, s_scroll_x);
+    lua_pushnumber(L, s_scroll_y);
+    s_scroll_x = 0.0;
+    s_scroll_y = 0.0;
+    return 2;
+}
+
+// set_cursor_visible(bool)
+static int l_set_cursor_visible(lua_State *L) {
+    bool visible = lua_toboolean(L, 1);
+    if (s_window) {
+        glfwSetInputMode(s_window, GLFW_CURSOR, visible ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
+    }
+    return 0;
+}
+
+static double s_last_mouse_x = 0.0;
+static double s_last_mouse_y = 0.0;
+
+// set_mouse_relative(bool) — locks and hides the cursor (GLFW_CURSOR_DISABLED)
+// for FPS-style mouse-look, and enables raw motion input where the platform
+// supports it (bypasses OS pointer acceleration for more accurate deltas).
+// While enabled, get_mouse_pos() returns an unbounded virtual position, not
+// screen coordinates — use get_mouse_delta() instead.
+static int l_set_mouse_relative(lua_State *L) {
+    bool enabled = lua_toboolean(L, 1);
+    if (s_window) {
+        glfwSetInputMode(s_window, GLFW_CURSOR, enabled ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        if (glfwRawMouseMotionSupported()) {
+            glfwSetInputMode(s_window, GLFW_RAW_MOUSE_MOTION, enabled ? GLFW_TRUE : GLFW_FALSE);
+        }
+        // reset the delta baseline so toggling this on doesn't produce one
+        // huge jump from wherever the cursor happened to be
+        glfwGetCursorPos(s_window, &s_last_mouse_x, &s_last_mouse_y);
+    }
+    return 0;
+}
+
+// get_mouse_delta() -> dx, dy since the last call. Meant to be called once
+// per frame (e.g. from update()) while set_mouse_relative(true) is active.
+static int l_get_mouse_delta(lua_State *L) {
+    double dx = 0.0, dy = 0.0;
+    if (s_window) {
+        double x, y;
+        glfwGetCursorPos(s_window, &x, &y);
+        dx = x - s_last_mouse_x;
+        dy = y - s_last_mouse_y;
+        s_last_mouse_x = x;
+        s_last_mouse_y = y;
+    }
+    lua_pushnumber(L, dx);
+    lua_pushnumber(L, dy);
+    return 2;
+}
+
 static int l_poll_text_input(lua_State *L) {
     lua_pushstring(L, s_input_queue);
     s_input_queue_len = 0;
@@ -227,6 +292,26 @@ static int l_image_draw_shader(lua_State *L) {
     return 0;
 }
 
+static int l_image_draw_quad(lua_State *L) {
+    Image **ud = luaL_checkudata(L, 1, "Image");
+    float sx = (float)luaL_checknumber(L, 2);
+    float sy = (float)luaL_checknumber(L, 3);
+    float sw = (float)luaL_checknumber(L, 4);
+    float sh = (float)luaL_checknumber(L, 5);
+    float dx = (float)luaL_checknumber(L, 6);
+    float dy = (float)luaL_checknumber(L, 7);
+    float scale = (float)luaL_optnumber(L, 8, 1.0f);
+
+    Shader *shader = NULL;
+    if (!lua_isnoneornil(L, 9)) {
+        Shader **shader_ud = luaL_checkudata(L, 9, "Shader");
+        shader = *shader_ud;
+    }
+
+    gfx_draw_image_quad(*ud, sx, sy, sw, sh, dx, dy, scale, shader);
+    return 0;
+}
+
 static int l_image_get_width(lua_State *L) {
     Image **ud = luaL_checkudata(L, 1, "Image");
     lua_pushinteger(L, (*ud)->width);
@@ -250,6 +335,7 @@ static int l_image_set_filter(lua_State *L) {
 static const luaL_Reg image_methods[] = {
     {"draw", l_image_draw},
     {"drawShader", l_image_draw_shader},
+    {"drawQuad", l_image_draw_quad},
     {"getWidth", l_image_get_width},
     {"getHeight", l_image_get_height},
     {"setFilter", l_image_set_filter},
@@ -493,9 +579,6 @@ static int l_shader_send(lua_State *L) {
                 return luaL_error(L, "shader:send matrix table must have 9 elements (mat3) or 16 elements (mat4)");
             }
         } else {
-            // Always float. A whole-number value like 2.0 is ambiguous with
-            // an int uniform, so guessing is unreliable — use
-            // shader:sendInt explicitly when you actually need an int.
             shader_set_float(*ud, name, (float)luaL_checknumber(L, 3));
         }
     } else if (nargs == 2) {
@@ -588,6 +671,17 @@ static int l_set_camera_look(lua_State *L) {
     float pitch = (float)luaL_optnumber(L, 5, 0.0);
     float roll = (float)luaL_optnumber(L, 6, 0.0);
     gfx_set_camera_look(x, y, z, yaw, pitch, roll);
+    return 0;
+}
+
+static int l_set_camera_lookat(lua_State *L) {
+    float x1 = (float)luaL_optnumber(L, 1, 0.0);
+    float y1 = (float)luaL_optnumber(L, 2, 0.0);
+    float z1 = (float)luaL_optnumber(L, 3, 0.0);
+    float x2 = (float)luaL_optnumber(L, 4, 0.0);
+    float y2 = (float)luaL_optnumber(L, 5, 0.0);
+    float z2 = (float)luaL_optnumber(L, 6, 0.0);
+    gfx_set_camera_lookat(x1, y1, z1, x2, y2, z2);
     return 0;
 }
 
@@ -696,6 +790,7 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "set_ortho", l_set_ortho);
     lua_register(L, "set_camera", l_set_camera);
     lua_register(L, "set_camera_look", l_set_camera_look);
+    lua_register(L, "set_camera_lookat", l_set_camera_lookat);
 
     lua_register(L, "get_dimensions", l_get_dimensions);
     lua_register(L, "quit", l_quit);
@@ -717,6 +812,11 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     register_type(L, "Sound", sound_methods);
 
     glfwSetCharCallback(window, char_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    lua_register(L, "get_scroll", l_get_scroll);
+    lua_register(L, "set_cursor_visible", l_set_cursor_visible);
+    lua_register(L, "set_mouse_relative", l_set_mouse_relative);
+    lua_register(L, "get_mouse_delta", l_get_mouse_delta);
     lua_register(L, "poll_text_input", l_poll_text_input);
 }
 

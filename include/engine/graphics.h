@@ -66,7 +66,7 @@ void gfx_set_projection(int width, int height);
 void gfx_set_perspective(int width, int height, float fovy_deg, float near, float far);
 void gfx_set_camera(float x, float y, float z);
 void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg);
-
+void gfx_set_camera_lookat(float x1, float y1, float z1, float x2, float y2, float z2);
 void gfx_set_shader(Shader *shader);
 
 Shader* gfx_default_shader(void);
@@ -76,5 +76,9 @@ typedef struct Font Font;
 Font* gfx_font_load(const char *path, int pixel_size);
 void gfx_font_free(Font *font);
 void gfx_set_font(Font *font); // NULL = embedded default font
+
+void gfx_draw_image_quad(Image *img, float sx, float sy, float sw, float sh,
+                          float dx, float dy, float scale, Shader *shader);
+void gfx_clear_shader_if_active(Shader *shader);
 
 #endif
