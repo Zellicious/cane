@@ -31,5 +31,6 @@ void shader_set_vec3(Shader *s, const char *name, float x, float y, float z);
 void shader_set_vec4(Shader *s, const char *name, float x, float y, float z, float w);
 void shader_set_mat3(Shader *s, const char *name, const float *m);
 void shader_set_mat4(Shader *s, const char *name, const float *m);
+void shader_set_texture(Shader *s, const char *name, GLuint texture_id, int unit);
 
 #endif

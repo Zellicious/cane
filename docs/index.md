@@ -83,6 +83,7 @@ mesh:draw(image, shader)  -- both optional
 ```lua
 shader = new_shader(vert_path, frag_path)
 shader:send(name, ...)     -- 1-4 numbers -> float/vec2/vec3/vec4; a 9 or 16-length table -> mat3/mat4
+shader:sendTexture(name, image)
 shader:sendInt(name, value)
 set_shader(shader)  -- nil resets to default; affects all drawing until changed
 ```

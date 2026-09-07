@@ -34,7 +34,14 @@ void gfx_canvas_set_filter(Canvas *c, const char *min_filter, const char *mag_fi
 
 float gfx_get_text_width(const char *text, float scale);
 
-typedef struct { float x, y, z, u, v, r, g, b, a; } Vertex;
+typedef struct {
+    float x, y, z, u, v, r, g, b, a;
+    float nx, ny, nz, nw; // generic vec4 slot — normal by convention, but
+                          // usable for anything per-vertex (bone weight,
+                          // packed flags, ...). Bound at attribute
+                          // location 3; shaders that don't declare it are
+                          // unaffected. nw defaults to 0.
+} Vertex;
 
 typedef struct {
     GLuint vao;

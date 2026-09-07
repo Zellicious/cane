@@ -19,6 +19,9 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define VERT(x_,y_,z_,u_,v_,r_,g_,b_,a_) \
+    (Vertex){ .x=(x_), .y=(y_), .z=(z_), .u=(u_), .v=(v_), .r=(r_), .g=(g_), .b=(b_), .a=(a_), .nx=0, .ny=0, .nz=0, .nw=0 }
+
 static float cur_color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 static Shader *g_main_shader = NULL;
@@ -486,13 +489,13 @@ Canvas* gfx_get_active_canvas(void) {
 void gfx_draw_canvas(Canvas *c, float x, float y, float w, float h) {
     if (!c) return;
     Vertex verts[6] = {
-        {x,     y,     0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y,     0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
+        VERT(x, y, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
 
-        {x,     y,     0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x,     y + h, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}
+        VERT(x, y, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x, y + h, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f)
     };
     scratch_draw(verts, 6, GL_TRIANGLES, c->texture);
 }
@@ -548,13 +551,13 @@ void gfx_draw_image(Image *img, float x, float y, float scale) {
     float h = img->height * scale;
 
     Vertex verts[6] = {
-        {x,     y,     0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y,     0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
+        VERT(x, y, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
 
-        {x,     y,     0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x,     y + h, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}
+        VERT(x, y, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x, y + h, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f)
     };
     scratch_draw(verts, 6, GL_TRIANGLES, img->texture);
 }
@@ -567,13 +570,13 @@ void gfx_draw_image_shader(Image *img, float x, float y, float scale, Shader *sh
     float h = img->height * scale;
 
     Vertex verts[6] = {
-        {x,     y,     0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y,     0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
+        VERT(x, y, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
 
-        {x,     y,     0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-        {x,     y + h, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}
+        VERT(x, y, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x + w, y + h, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(x, y + h, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f)
     };
 
     Shader *target_shader = shader ? shader : (g_active_shader ? g_active_shader : g_main_shader);
@@ -593,13 +596,13 @@ void gfx_draw_image_quad(Image *img, float sx, float sy, float sw, float sh,
     float h = sh * scale;
 
     Vertex verts[6] = {
-        {dx,     dy,     0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f},
-        {dx + w, dy,     0, u1, v0, 1.0f, 1.0f, 1.0f, 1.0f},
-        {dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f},
+        VERT(dx, dy, 0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(dx + w, dy, 0, u1, v0, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f),
 
-        {dx,     dy,     0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f},
-        {dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f},
-        {dx,     dy + h, 0, u0, v1, 1.0f, 1.0f, 1.0f, 1.0f}
+        VERT(dx, dy, 0, u0, v0, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(dx + w, dy + h, 0, u1, v1, 1.0f, 1.0f, 1.0f, 1.0f),
+        VERT(dx, dy + h, 0, u0, v1, 1.0f, 1.0f, 1.0f, 1.0f)
     };
 
     Shader *target_shader = shader ? shader : (g_active_shader ? g_active_shader : g_main_shader);
@@ -654,6 +657,9 @@ Mesh* gfx_mesh_new(Vertex *vertices, int count, GLenum mode) {
 
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
     glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, nx));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -711,21 +717,21 @@ void gfx_draw_rectangle(bool fill, float x, float y, float w, float h) {
     float r = cur_color[0], g = cur_color[1], b = cur_color[2], a = cur_color[3];
     if (fill) {
         Vertex verts[6] = {
-            {x,     y,     0, 0, 0, r, g, b, a},
-            {x + w, y,     0, 0, 0, r, g, b, a},
-            {x + w, y + h, 0, 0, 0, r, g, b, a},
+            VERT(x, y, 0, 0, 0, r, g, b, a),
+            VERT(x + w, y, 0, 0, 0, r, g, b, a),
+            VERT(x + w, y + h, 0, 0, 0, r, g, b, a),
 
-            {x,     y,     0, 0, 0, r, g, b, a},
-            {x + w, y + h, 0, 0, 0, r, g, b, a},
-            {x,     y + h, 0, 0, 0, r, g, b, a}
+            VERT(x, y, 0, 0, 0, r, g, b, a),
+            VERT(x + w, y + h, 0, 0, 0, r, g, b, a),
+            VERT(x, y + h, 0, 0, 0, r, g, b, a)
         };
         scratch_draw(verts, 6, GL_TRIANGLES, 0);
     } else {
         Vertex verts[4] = {
-            {x,     y,     0, 0, 0, r, g, b, a},
-            {x + w, y,     0, 0, 0, r, g, b, a},
-            {x + w, y + h, 0, 0, 0, r, g, b, a},
-            {x,     y + h, 0, 0, 0, r, g, b, a}
+            VERT(x, y, 0, 0, 0, r, g, b, a),
+            VERT(x + w, y, 0, 0, 0, r, g, b, a),
+            VERT(x + w, y + h, 0, 0, 0, r, g, b, a),
+            VERT(x, y + h, 0, 0, 0, r, g, b, a)
         };
         scratch_draw(verts, 4, GL_LINE_LOOP, 0);
     }
@@ -734,9 +740,9 @@ void gfx_draw_rectangle(bool fill, float x, float y, float w, float h) {
 void gfx_draw_triangle(bool fill, float x1, float y1, float x2, float y2, float x3, float y3) {
     float r = cur_color[0], g = cur_color[1], b = cur_color[2], a = cur_color[3];
     Vertex verts[3] = {
-        {x1, y1, 0, 0, 0, r, g, b, a},
-        {x2, y2, 0, 0, 0, r, g, b, a},
-        {x3, y3, 0, 0, 0, r, g, b, a},
+        VERT(x1, y1, 0, 0, 0, r, g, b, a),
+        VERT(x2, y2, 0, 0, 0, r, g, b, a),
+        VERT(x3, y3, 0, 0, 0, r, g, b, a),
     };
     scratch_draw(verts, 3, fill ? GL_TRIANGLES : GL_LINE_LOOP, 0);
 }
@@ -755,15 +761,11 @@ void gfx_draw_circle(bool fill, float cx, float cy, float radius, int segments) 
 
     int idx = 0;
     if (fill) {
-        verts[idx++] = (Vertex){cx, cy, 0, 0, 0, r, g, b, a};
+        verts[idx++] = (Vertex)VERT(cx, cy, 0, 0, 0, r, g, b, a);
     }
     for (int i = 0; i <= segments; i++) {
         float theta = 2.0f * (float)M_PI * (float)i / (float)segments;
-        verts[idx++] = (Vertex){
-            cx + radius * cosf(theta),
-            cy + radius * sinf(theta),
-            0, 0, 0, r, g, b, a
-        };
+        verts[idx++] = (Vertex)VERT(cx + radius * cosf(theta), cy + radius * sinf(theta), 0, 0, 0, r, g, b, a);
     }
 
     scratch_draw(verts, count, fill ? GL_TRIANGLE_FAN : GL_LINE_LOOP, 0);
@@ -790,13 +792,13 @@ void gfx_print_text(const char *text, float x, float y, float scale) {
             float h = glyph->height * scale;
 
             Vertex verts[6] = {
-                {xpos,     ypos,     0, 0.0f, 0.0f, r, g, b, a},
-                {xpos + w, ypos,     0, 1.0f, 0.0f, r, g, b, a},
-                {xpos + w, ypos + h, 0, 1.0f, 1.0f, r, g, b, a},
+                VERT(xpos, ypos, 0, 0.0f, 0.0f, r, g, b, a),
+                VERT(xpos + w, ypos, 0, 1.0f, 0.0f, r, g, b, a),
+                VERT(xpos + w, ypos + h, 0, 1.0f, 1.0f, r, g, b, a),
 
-                {xpos,     ypos,     0, 0.0f, 0.0f, r, g, b, a},
-                {xpos + w, ypos + h, 0, 1.0f, 1.0f, r, g, b, a},
-                {xpos,     ypos + h, 0, 0.0f, 1.0f, r, g, b, a}
+                VERT(xpos, ypos, 0, 0.0f, 0.0f, r, g, b, a),
+                VERT(xpos + w, ypos + h, 0, 1.0f, 1.0f, r, g, b, a),
+                VERT(xpos, ypos + h, 0, 0.0f, 1.0f, r, g, b, a)
             };
             scratch_draw_ex(verts, 6, GL_TRIANGLES, glyph->texture, g_text_shader);
         }

@@ -463,6 +463,10 @@ static Vertex* read_vertex_array(lua_State *L, int idx, int *out_count) {
         verts[i].g = table_field_num(L, vt, "g", 1.0f);
         verts[i].b = table_field_num(L, vt, "b", 1.0f);
         verts[i].a = table_field_num(L, vt, "a", 1.0f);
+        verts[i].nx = table_field_num(L, vt, "nx", 0.0f);
+        verts[i].ny = table_field_num(L, vt, "ny", 0.0f);
+        verts[i].nz = table_field_num(L, vt, "nz", 0.0f);
+        verts[i].nw = table_field_num(L, vt, "nw", 0.0f);
         lua_pop(L, 1);
     }
 
@@ -604,8 +608,19 @@ static int l_shader_send_int(lua_State *L) {
     return 0;
 }
 
+static int l_shader_send_texture(lua_State *L) {
+    Shader **ud = luaL_checkudata(L, 1, "Shader");
+    const char *name = luaL_checkstring(L, 2);
+    Image **img_ud = luaL_checkudata(L, 3, "Image");
+    int unit = (int)luaL_optinteger(L, 4, 1);
+    shader_use(*ud);
+    shader_set_texture(*ud, name, (*img_ud)->texture, unit);
+    return 0;
+}
+
 static const luaL_Reg shader_methods[] = {
     {"send", l_shader_send},
+    {"sendTexture", l_shader_send_texture},
     {"sendInt", l_shader_send_int},
     {"__gc", l_shader_gc},
     {NULL, NULL}

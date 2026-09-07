@@ -131,3 +131,9 @@ void shader_set_mat4(Shader *s, const char *name, const float *m) {
     GLint loc = shader_uniform(s, name);
     if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, m);
 }
+void shader_set_texture(Shader *s, const char *name, GLuint texture_id, int unit) {
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+    GLint loc = shader_uniform(s, name);
+    if (loc >= 0) glUniform1i(loc, unit);
+}
