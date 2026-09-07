@@ -835,13 +835,26 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "poll_text_input", l_poll_text_input);
 }
 
+static int traceback_handler(lua_State *L) {
+    const char *msg = lua_tostring(L, 1);
+    luaL_traceback(L, L, msg, 1);
+    return 1;
+}
+
 void lua_api_call_global(lua_State *L, const char *func, int nargs) {
     lua_getglobal(L, func);
     if (lua_isfunction(L, -1)) {
         if (nargs > 0) lua_insert(L, -1 - nargs);
-        if (lua_pcall(L, nargs, 0, 0) != LUA_OK) {
+
+        lua_pushcfunction(L, traceback_handler);
+        int msgh_idx = lua_gettop(L) - nargs - 1;
+        lua_insert(L, msgh_idx);
+
+        if (lua_pcall(L, nargs, 0, msgh_idx) != LUA_OK) {
             fprintf(stderr, "lua error [%s]: %s\n", func, lua_tostring(L, -1));
+            lua_pop(L, 1);
         }
+        lua_remove(L, msgh_idx);
     } else {
         lua_pop(L, 1 + nargs);
     }

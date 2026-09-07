@@ -70,7 +70,9 @@ canvas:setFilter(min, mag)
 
 ## mesh (3d)
 
-vertex table fields: `x,y,z, u,v, r,g,b,a` (all optional except x/y/z; color defaults white, uv defaults 0).
+vertex table fields: `x,y,z, u,v, r,g,b,a, nx,ny,nz,nw` (all optional except x/y/z; color defaults white, uv defaults 0, nx/ny/nz/nw default 0).
+
+`nx,ny,nz,nw` is a generic per-vertex vec4 slot bound at shader attribute `location = 3`. By convention used for a normal (`nw` unused), but it's just raw per-vertex data — usable for anything a shader wants to read per-vertex (packed flags, weights, whatever). A shader that doesn't declare `layout(location = 3)` simply ignores it; no need to fill it in if you're not using it.
 
 ```lua
 mesh = new_mesh(vertices, mode)  -- mode: "triangles" | "lines" | "line_loop" | "triangle_fan" | "triangle_strip"
@@ -83,7 +85,8 @@ mesh:draw(image, shader)  -- both optional
 ```lua
 shader = new_shader(vert_path, frag_path)
 shader:send(name, ...)     -- 1-4 numbers -> float/vec2/vec3/vec4; a 9 or 16-length table -> mat3/mat4
-shader:sendTexture(name, image)
+shader:sendTexture(name, image, unit)  -- unit optional, defaults to 1
+                                        -- (unit 0 is the mesh's own implicit texture, set via mesh:draw(image, shader))
 shader:sendInt(name, value)
 set_shader(shader)  -- nil resets to default; affects all drawing until changed
 ```
@@ -103,8 +106,13 @@ set_font(font)                     -- nil resets to default font
 set_ortho()                                  -- 2D screen-space (default)
 set_perspective(fovy_deg, near, far)
 set_camera(x, y, z)                          -- translate-only
-set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- full fly camera
-set_camera_lookat(x2, y2, z2, x2, y2, z2)  -- look but better
+set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- fly camera, angles in degrees
+set_camera_lookat(eye_x, eye_y, eye_z, target_x, target_y, target_z)
+-- positions the camera at (eye_x,eye_y,eye_z) looking directly at
+-- (target_x,target_y,target_z). Simpler than set_camera_look when you
+-- already know the point you want centered in view — e.g. a boxing-ring
+-- camera tracking the midpoint between two fighters — rather than working
+-- out yaw/pitch by hand.
 ```
 
 ## audio
@@ -132,11 +140,10 @@ get_scroll() -> dx, dy  -- accumulated scroll delta since the last call, then re
 set_cursor_visible(bool)
 
 set_mouse_relative(bool)
--- locks and hides the cursor, enabling raw
--- motion input where the platform supports it (bypasses OS pointer
--- acceleration) get_mouse_pos() returns an unbounded
--- virtual position, not real screen coordinates - use get_mouse_delta()
--- instead.
+-- locks and hides the cursor, enabling raw motion input where the
+-- platform supports it (bypasses OS pointer acceleration). While
+-- enabled, get_mouse_pos() returns an unbounded virtual position, not
+-- real screen coordinates — use get_mouse_delta() instead.
 get_mouse_delta() -> dx, dy
 -- motion since the last call. Call once per frame (e.g. from update())
 -- while set_mouse_relative(true) is active.
