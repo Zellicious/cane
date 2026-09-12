@@ -124,6 +124,14 @@ snd:stop()
 snd:setLooping(bool)
 snd:setVolume(0.0-1.0)
 snd:setPitch(1.0)  -- 1.0 = normal
+snd:setPosition(x, y, z)
+snd:setVelocity(vel_x, vel_y, vel_z)
+snd:setAttenuation(min_dist, max_dist)
+snd:setPan(pan)
+
+set_audio_listener_position(x, y, z)
+set_audio_listener_direction(forward_x, forward_y, forward_z)
+set_audio_listener_velocity(vel_x, vel_y, vel_z)
 ```
 
 ## input

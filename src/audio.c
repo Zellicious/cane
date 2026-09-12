@@ -92,3 +92,41 @@ void audio_sound_set_volume(Sound *sound, float volume) {
 void audio_sound_set_pitch(Sound *sound, float pitch) {
     if (sound) ma_sound_set_pitch(&sound->sound, pitch);
 }
+
+void audio_listener_set_position(float x, float y, float z) {
+    if (g_audio_initialized) {
+        ma_engine_listener_set_position(&g_engine, 0, x, y, z);
+    }
+}
+
+void audio_listener_set_direction(float forward_x, float forward_y, float forward_z) {
+    if (g_audio_initialized) {
+        ma_engine_listener_set_direction(&g_engine, 0, forward_x, forward_y, forward_z);
+    }
+}
+
+void audio_listener_set_velocity(float vel_x, float vel_y, float vel_z) {
+    if (g_audio_initialized) {
+        ma_engine_listener_set_velocity(&g_engine, 0, vel_x, vel_y, vel_z);
+    }
+}
+
+void audio_sound_set_position(Sound *sound, float x, float y, float z) {
+    if (sound) ma_sound_set_position(&sound->sound, x, y, z);
+}
+
+void audio_sound_set_velocity(Sound *sound, float vel_x, float vel_y, float vel_z) {
+    if (sound) ma_sound_set_velocity(&sound->sound, vel_x, vel_y, vel_z);
+}
+
+void audio_sound_set_attenuation(Sound *sound, float min_dist, float max_dist) {
+    if (sound) {
+        ma_sound_set_attenuation_model(&sound->sound, ma_attenuation_model_inverse);
+        ma_sound_set_min_distance(&sound->sound, min_dist);
+        ma_sound_set_max_distance(&sound->sound, max_dist);
+    }
+}
+
+void audio_sound_set_pan(Sound *sound, float pan) {
+    if (sound) ma_sound_set_pan(&sound->sound, pan); // -1.0f (left) to 1.0f (right)
+}

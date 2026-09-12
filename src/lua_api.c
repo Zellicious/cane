@@ -145,12 +145,73 @@ static int l_sound_set_pitch(lua_State *L) {
     return 0;
 }
 
+static int l_sound_set_position(lua_State *L) {
+    Sound **ud = luaL_checkudata(L, 1, "Sound");
+    float x = (float)luaL_checknumber(L, 2);
+    float y = (float)luaL_checknumber(L, 3);
+    float z = (float)luaL_checknumber(L, 4);
+    audio_sound_set_position(*ud, x, y, z);
+    return 0;
+}
+
+static int l_sound_set_velocity(lua_State *L) {
+    Sound **ud = luaL_checkudata(L, 1, "Sound");
+    float x = (float)luaL_checknumber(L, 2);
+    float y = (float)luaL_checknumber(L, 3);
+    float z = (float)luaL_checknumber(L, 4);
+    audio_sound_set_velocity(*ud, x, y, z);
+    return 0;
+}
+
+static int l_sound_set_attenuation(lua_State *L) {
+    Sound **ud = luaL_checkudata(L, 1, "Sound");
+    float min_dist = (float)luaL_checknumber(L, 2);
+    float max_dist = (float)luaL_checknumber(L, 3);
+    audio_sound_set_attenuation(*ud, min_dist, max_dist);
+    return 0;
+}
+
+static int l_sound_set_pan(lua_State *L) {
+    Sound **ud = luaL_checkudata(L, 1, "Sound");
+    float pan = (float)luaL_checknumber(L, 2);
+    audio_sound_set_pan(*ud, pan);
+    return 0;
+}
+
+static int l_audio_set_listener_position(lua_State *L) {
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    float z = (float)luaL_checknumber(L, 3);
+    audio_listener_set_position(x, y, z);
+    return 0;
+}
+
+static int l_audio_set_listener_direction(lua_State *L) {
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    float z = (float)luaL_checknumber(L, 3);
+    audio_listener_set_direction(x, y, z);
+    return 0;
+}
+
+static int l_audio_set_listener_velocity(lua_State *L) {
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    float z = (float)luaL_checknumber(L, 3);
+    audio_listener_set_velocity(x, y, z);
+    return 0;
+}
+
 static const luaL_Reg sound_methods[] = {
     {"play", l_sound_play},
     {"stop", l_sound_stop},
     {"setLooping", l_sound_set_looping},
     {"setVolume", l_sound_set_volume},
     {"setPitch", l_sound_set_pitch},
+    {"setPosition", l_sound_set_position},
+    {"setVelocity", l_sound_set_velocity},
+    {"setAttenuation", l_sound_set_attenuation},
+    {"setPan", l_sound_set_pan},
     {"__gc", l_sound_gc},
     {NULL, NULL}
 };
@@ -824,6 +885,9 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "is_mouse_down", l_is_mouse_down);
 
     lua_register(L, "new_sound", l_sound_new);
+    lua_register(L, "set_listener_position", l_audio_set_listener_position);
+    lua_register(L, "set_listener_direction", l_audio_set_listener_direction);
+    lua_register(L, "set_listener_velocity", l_audio_set_listener_velocity);
     register_type(L, "Sound", sound_methods);
 
     glfwSetCharCallback(window, char_callback);
