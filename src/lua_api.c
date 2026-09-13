@@ -885,9 +885,9 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "is_mouse_down", l_is_mouse_down);
 
     lua_register(L, "new_sound", l_sound_new);
-    lua_register(L, "set_listener_position", l_audio_set_listener_position);
-    lua_register(L, "set_listener_direction", l_audio_set_listener_direction);
-    lua_register(L, "set_listener_velocity", l_audio_set_listener_velocity);
+    lua_register(L, "set_audio_listener_position", l_audio_set_listener_position);
+    lua_register(L, "set_audio_listener_direction", l_audio_set_listener_direction);
+    lua_register(L, "set_audio_listener_velocity", l_audio_set_listener_velocity);
     register_type(L, "Sound", sound_methods);
 
     glfwSetCharCallback(window, char_callback);
