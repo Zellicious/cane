@@ -1,11 +1,11 @@
 #include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "engine/graphics.h"
-#include "engine/shader.h"
-#include "engine/vfs.h"
+#include "graphics.h"
+#include "shader.h"
+#include "vfs.h"
 
-#include "engine/app.h"
+#include "app.h"
 #include <math.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -19,6 +19,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+// helper for the weird vertex format
 #define VERT(x_,y_,z_,u_,v_,r_,g_,b_,a_) \
     (Vertex){ .x=(x_), .y=(y_), .z=(z_), .u=(u_), .v=(v_), .r=(r_), .g=(g_), .b=(b_), .a=(a_), .nx=0, .ny=0, .nz=0, .nw=0 }
 

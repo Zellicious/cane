@@ -17,11 +17,11 @@ typedef struct {
     char title[128];
     char identity[64];
     int msaa;           // e.g., 0, 2, 4, 8 samples
-    bool highdpi;       // Enable HighDPI / Retina scale support
-    bool resizable;     // Allow window resizing
-    int min_width;      // Minimum window width constraint (-1 for none)
-    int min_height;     // Minimum window height constraint (-1 for none)
-    bool vsync;         // Enable/disable vertical sync
+    bool highdpi;       // enable HighDPI / Retina scale support
+    bool resizable;     // allow window resizing
+    int min_width;      // minimum window width constraint (-1 for none)
+    int min_height;     // minimum window height constraint (-1 for none)
+    bool vsync;         // enable/disable vertical sync
 } WindowConfig;
 
 typedef struct {

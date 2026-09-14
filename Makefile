@@ -1,5 +1,5 @@
 TARGET   := build/cane/cane
-CC       := gcc
+CC       := clang
 DIST_DIR := build/cane
 
 LIB_PHYSFS   := $(shell $(CC) -print-file-name=libphysfs.so)

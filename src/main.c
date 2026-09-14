@@ -1,6 +1,6 @@
 #define _DEFAULT_SOURCE
-#include "engine/app.h"
-#include "engine/vfs.h"
+#include "app.h"
+#include "vfs.h"
 #include <physfs.h>
 #include <stdio.h>
 #include <string.h>

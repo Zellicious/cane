@@ -1,5 +1,5 @@
-#include "engine/audio.h"
-#include "engine/vfs.h"
+#include "audio.h"
+#include "vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
 

@@ -1,4 +1,4 @@
-#include "engine/vfs.h"
+#include "vfs.h"
 #include <physfs.h>
 #include <lua.h>
 #include <lauxlib.h>

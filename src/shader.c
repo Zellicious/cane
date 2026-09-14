@@ -1,6 +1,6 @@
-#include "engine/shader.h"
-#include "engine/graphics.h"
-#include "engine/vfs.h"
+#include "shader.h"
+#include "graphics.h"
+#include "vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,13 +1,13 @@
-#include "engine/lua_api.h"
-#include "engine/graphics.h"
-#include "engine/app.h"
+#include "lua_api.h"
+#include "graphics.h"
+#include "app.h"
 #include <GLFW/glfw3.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "engine/audio.h"
-#include "engine/vfs.h"
+#include "audio.h"
+#include "vfs.h"
 
 static GLFWwindow *s_window = NULL;
 
@@ -16,7 +16,7 @@ static size_t s_input_queue_len = 0;
 
 static void char_callback(GLFWwindow *window, unsigned int codepoint) {
     (void)window;
-    if (codepoint > 127) return; // ASCII only, keeps this minimal
+    if (codepoint > 127) return;
     if (s_input_queue_len < sizeof(s_input_queue) - 1) {
         s_input_queue[s_input_queue_len++] = (char)codepoint;
         s_input_queue[s_input_queue_len] = '\0';
@@ -52,11 +52,8 @@ static int l_set_cursor_visible(lua_State *L) {
 static double s_last_mouse_x = 0.0;
 static double s_last_mouse_y = 0.0;
 
-// set_mouse_relative(bool) — locks and hides the cursor (GLFW_CURSOR_DISABLED)
-// for FPS-style mouse-look, and enables raw motion input where the platform
-// supports it (bypasses OS pointer acceleration for more accurate deltas).
-// While enabled, get_mouse_pos() returns an unbounded virtual position, not
-// screen coordinates — use get_mouse_delta() instead.
+// locks and hides the cursor (GLFW_CURSOR_DISABLED) (bypasses pointer acceleration)
+// use get_mouse_delta instead for deltas when using this
 static int l_set_mouse_relative(lua_State *L) {
     bool enabled = lua_toboolean(L, 1);
     if (s_window) {
@@ -64,15 +61,12 @@ static int l_set_mouse_relative(lua_State *L) {
         if (glfwRawMouseMotionSupported()) {
             glfwSetInputMode(s_window, GLFW_RAW_MOUSE_MOTION, enabled ? GLFW_TRUE : GLFW_FALSE);
         }
-        // reset the delta baseline so toggling this on doesn't produce one
-        // huge jump from wherever the cursor happened to be
+        // reset the delta baseline so toggling this on doesnt produce one huge jump from wherever the cursor happened to be
         glfwGetCursorPos(s_window, &s_last_mouse_x, &s_last_mouse_y);
     }
     return 0;
 }
 
-// get_mouse_delta() -> dx, dy since the last call. Meant to be called once
-// per frame (e.g. from update()) while set_mouse_relative(true) is active.
 static int l_get_mouse_delta(lua_State *L) {
     double dx = 0.0, dy = 0.0;
     if (s_window) {
@@ -216,29 +210,69 @@ static const luaL_Reg sound_methods[] = {
     {NULL, NULL}
 };
 
+// todo: will add more
 int get_glfw_key(const char *name) {
     if (strcmp(name, "space") == 0) return GLFW_KEY_SPACE;
     if (strcmp(name, "up") == 0) return GLFW_KEY_UP;
     if (strcmp(name, "down") == 0) return GLFW_KEY_DOWN;
     if (strcmp(name, "left") == 0) return GLFW_KEY_LEFT;
     if (strcmp(name, "right") == 0) return GLFW_KEY_RIGHT;
-
     if (strcmp(name, "tab") == 0) return GLFW_KEY_TAB;
-    if (strcmp(name, "return") == 0) return GLFW_KEY_ENTER; // GLFW has no GLFW_KEY_RETURN
-    if (strcmp(name, "escape") == 0) return GLFW_KEY_ESCAPE;
+    if (strcmp(name, "return") == 0 || strcmp(name, "enter") == 0) return GLFW_KEY_ENTER;
+    if (strcmp(name, "escape") == 0 || strcmp(name, "esc") == 0) return GLFW_KEY_ESCAPE;
     if (strcmp(name, "backspace") == 0) return GLFW_KEY_BACKSPACE;
-
+    if (strcmp(name, "delete") == 0 || strcmp(name, "del") == 0) return GLFW_KEY_DELETE;
+    if (strcmp(name, "insert") == 0 || strcmp(name, "ins") == 0) return GLFW_KEY_INSERT;
+    if (strcmp(name, "home") == 0) return GLFW_KEY_HOME;
+    if (strcmp(name, "end") == 0) return GLFW_KEY_END;
+    if (strcmp(name, "pageup") == 0 || strcmp(name, "pgup") == 0) return GLFW_KEY_PAGE_UP;
+    if (strcmp(name, "pagedown") == 0 || strcmp(name, "pgdn") == 0) return GLFW_KEY_PAGE_DOWN;
+    if (strcmp(name, "capslock") == 0) return GLFW_KEY_CAPS_LOCK;
+    
     if (strcmp(name, "ctrl") == 0 || strcmp(name, "lctrl") == 0) return GLFW_KEY_LEFT_CONTROL;
     if (strcmp(name, "rctrl") == 0) return GLFW_KEY_RIGHT_CONTROL;
     if (strcmp(name, "shift") == 0 || strcmp(name, "lshift") == 0) return GLFW_KEY_LEFT_SHIFT;
     if (strcmp(name, "rshift") == 0) return GLFW_KEY_RIGHT_SHIFT;
     if (strcmp(name, "alt") == 0 || strcmp(name, "lalt") == 0) return GLFW_KEY_LEFT_ALT;
     if (strcmp(name, "ralt") == 0) return GLFW_KEY_RIGHT_ALT;
-
+    if (strcmp(name, "super") == 0 || strcmp(name, "win") == 0 || strcmp(name, "cmd") == 0) return GLFW_KEY_LEFT_SUPER;
+    
+    if (name[0] == 'f' || name[0] == 'F') {
+        if (strcmp(name + 1, "1") == 0) return GLFW_KEY_F1;
+        if (strcmp(name + 1, "2") == 0) return GLFW_KEY_F2;
+        if (strcmp(name + 1, "3") == 0) return GLFW_KEY_F3;
+        if (strcmp(name + 1, "4") == 0) return GLFW_KEY_F4;
+        if (strcmp(name + 1, "5") == 0) return GLFW_KEY_F5;
+        if (strcmp(name + 1, "6") == 0) return GLFW_KEY_F6;
+        if (strcmp(name + 1, "7") == 0) return GLFW_KEY_F7;
+        if (strcmp(name + 1, "8") == 0) return GLFW_KEY_F8;
+        if (strcmp(name + 1, "9") == 0) return GLFW_KEY_F9;
+        if (strcmp(name + 1, "10") == 0) return GLFW_KEY_F10;
+        if (strcmp(name + 1, "11") == 0) return GLFW_KEY_F11;
+        if (strcmp(name + 1, "12") == 0) return GLFW_KEY_F12;
+    }
+    
     if (strlen(name) == 1) {
-        char c = toupper(name[0]);
-        if (c >= 'A' && c <= 'Z') return GLFW_KEY_A + (c - 'A');
-        if (c >= '0' && c <= '9') return GLFW_KEY_0 + (c - '0');
+        char c = name[0];
+        char u = toupper(c);
+        
+        if (u >= 'A' && u <= 'Z') return GLFW_KEY_A + (u - 'A');
+        if (u >= '0' && u <= '9') return GLFW_KEY_0 + (u - '0');
+        
+        switch (c) {
+            case ';':  return GLFW_KEY_SEMICOLON;
+            case '=':  return GLFW_KEY_EQUAL;
+            case ',':  return GLFW_KEY_COMMA;
+            case '-':  return GLFW_KEY_MINUS;
+            case '.':  return GLFW_KEY_PERIOD;
+            case '/':  return GLFW_KEY_SLASH;
+            case '`':  return GLFW_KEY_GRAVE_ACCENT;
+            case '[':  return GLFW_KEY_LEFT_BRACKET;
+            case '\\': return GLFW_KEY_BACKSLASH;
+            case ']':  return GLFW_KEY_RIGHT_BRACKET;
+            case '\'': return GLFW_KEY_APOSTROPHE;
+            default:   break;
+        }
     }
 
     return GLFW_KEY_UNKNOWN;

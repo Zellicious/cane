@@ -1,8 +1,8 @@
-#include "engine/app.h"
-#include "engine/lua_api.h"
-#include "engine/vfs.h"
+#include "app.h"
+#include "lua_api.h"
+#include "vfs.h"
 #include "noto_sans_font.h"
-#include "engine/audio.h"
+#include "audio.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
