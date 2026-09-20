@@ -424,12 +424,17 @@ void gfx_clear_shader_if_active(Shader *shader) {
 Shader* gfx_default_shader(void) {
     return g_main_shader;
 }
-Canvas* gfx_canvas_new(int width, int height) {
-    Canvas *c = malloc(sizeof(Canvas));
+
+Canvas* gfx_canvas_new(int width, int height, int samples) {
+    Canvas *c = calloc(1, sizeof(Canvas));
     if (!c) return NULL;
     c->width = width;
     c->height = height;
+    c->is_msaa = (samples > 0);
 
+    glGenFramebuffers(1, &c->fbo);
+    
+    // The texture we will eventually sample from (always standard 2D)
     glGenTextures(1, &c->texture);
     glBindTexture(GL_TEXTURE_2D, c->texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -437,26 +442,54 @@ Canvas* gfx_canvas_new(int width, int height) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glGenRenderbuffers(1, &c->depth_rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, c->depth_rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    if (c->is_msaa) {
+        // Multisampled color renderbuffer
+        glGenRenderbuffers(1, &c->msaa_color_rbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, c->msaa_color_rbo);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    glGenFramebuffers(1, &c->fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, c->texture, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, c->depth_rbo);
+        // Multisampled depth renderbuffer
+        glGenRenderbuffers(1, &c->depth_rbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, c->depth_rbo);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+        // Attach to main FBO
+        glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, c->msaa_color_rbo);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, c->depth_rbo);
+        
+        // Create resolve FBO
+        glGenFramebuffers(1, &c->resolve_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, c->resolve_fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, c->texture, 0);
+    } else {
+        // Standard depth renderbuffer
+        glGenRenderbuffers(1, &c->depth_rbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, c->depth_rbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+        // Attach to main FBO
+        glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, c->texture, 0);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, c->depth_rbo);
+    }
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "canvas: framebuffer incomplete\n");
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFramebuffers(1, &c->fbo);
+        if (c->is_msaa) {
+            glDeleteFramebuffers(1, &c->resolve_fbo);
+            glDeleteRenderbuffers(1, &c->msaa_color_rbo);
+        }
         glDeleteRenderbuffers(1, &c->depth_rbo);
         glDeleteTextures(1, &c->texture);
         free(c);
         return NULL;
     }
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return c;
 }
@@ -464,10 +497,15 @@ Canvas* gfx_canvas_new(int width, int height) {
 void gfx_canvas_free(Canvas *c) {
     if (!c) return;
     glDeleteFramebuffers(1, &c->fbo);
+    if (c->is_msaa) {
+        glDeleteFramebuffers(1, &c->resolve_fbo);
+        glDeleteRenderbuffers(1, &c->msaa_color_rbo);
+    }
     glDeleteRenderbuffers(1, &c->depth_rbo);
     glDeleteTextures(1, &c->texture);
     free(c);
 }
+
 
 void gfx_set_canvas(Canvas *c) {
     g_active_canvas = c;
@@ -489,20 +527,33 @@ Canvas* gfx_get_active_canvas(void) {
 
 void gfx_draw_canvas(Canvas *c, float x, float y, float w, float h) {
     if (!c) return;
+    
+    GLuint tex_to_draw = c->texture;
+    
+    // If the canvas is MSAA, we must resolve it to the standard texture before drawing
+    if (c->is_msaa) {
+        GLint current_draw_fbo;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_draw_fbo);
+        
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, c->fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, c->resolve_fbo);
+        // GL_NEAREST is required for resolving multisampled buffers
+        glBlitFramebuffer(0, 0, c->width, c->height, 0, 0, c->width, c->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        
+        // Restore the previously bound framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, current_draw_fbo);
+    }
+
     Vertex verts[6] = {
         VERT(x, y, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
         VERT(x + w, y, 0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
         VERT(x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
-
         VERT(x, y, 0, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f),
         VERT(x + w, y + h, 0, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f),
         VERT(x, y + h, 0, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f)
     };
-    scratch_draw(verts, 6, GL_TRIANGLES, c->texture);
+    scratch_draw(verts, 6, GL_TRIANGLES, tex_to_draw);
 }
-
-
-
 
 
 Image* gfx_image_load(const char *path) {

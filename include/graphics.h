@@ -6,14 +6,19 @@
 #include <stddef.h>
 #include "shader.h"
 
-typedef struct Canvas {
+typedef struct {
+    int width, height;
     GLuint fbo;
     GLuint texture;
     GLuint depth_rbo;
-    int width, height;
+    
+    // MSAA specific
+    bool is_msaa;
+    GLuint msaa_color_rbo;
+    GLuint resolve_fbo;
 } Canvas;
 
-Canvas* gfx_canvas_new(int width, int height);
+Canvas* gfx_canvas_new(int width, int height, int samples);
 void gfx_canvas_free(Canvas *c);
 void gfx_set_canvas(Canvas *c);
 Canvas* gfx_get_active_canvas(void);

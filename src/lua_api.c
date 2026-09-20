@@ -67,6 +67,28 @@ static int l_set_mouse_relative(lua_State *L) {
     return 0;
 }
 
+static int l_set_mouse_locked(lua_State *L) {
+    bool locked = lua_toboolean(L, 1);
+    if (s_window) {
+        glfwSetInputMode(s_window, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        if (glfwRawMouseMotionSupported()) {
+            glfwSetInputMode(s_window, GLFW_RAW_MOUSE_MOTION, locked ? GLFW_TRUE : GLFW_FALSE);
+        }
+        // Reset baseline to prevent a massive delta jump upon locking
+        glfwGetCursorPos(s_window, &s_last_mouse_x, &s_last_mouse_y);
+    }
+    return 0;
+}
+
+static int l_get_mouse_locked(lua_State *L) {
+    bool locked = false;
+    if (s_window) {
+        locked = (glfwGetInputMode(s_window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED);
+    }
+    lua_pushboolean(L, locked);
+    return 1;
+}
+
 static int l_get_mouse_delta(lua_State *L) {
     double dx = 0.0, dy = 0.0;
     if (s_window) {
@@ -442,9 +464,9 @@ static const luaL_Reg image_methods[] = {
 static int l_canvas_new(lua_State *L) {
     int w = (int)luaL_checkinteger(L, 1);
     int h = (int)luaL_checkinteger(L, 2);
-    Canvas *c = gfx_canvas_new(w, h);
+    int msaa = (int)luaL_optinteger(L, 3, 0); // 3rd argument is MSAA samples (default 0)
+    Canvas *c = gfx_canvas_new(w, h, msaa);
     if (!c) { lua_pushnil(L); return 1; }
-
     Canvas **ud = lua_newuserdata(L, sizeof(Canvas*));
     *ud = c;
     luaL_getmetatable(L, "Canvas");
@@ -929,6 +951,8 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "get_scroll", l_get_scroll);
     lua_register(L, "set_cursor_visible", l_set_cursor_visible);
     lua_register(L, "set_mouse_relative", l_set_mouse_relative);
+    lua_register(L, "set_mouse_locked", l_set_mouse_locked);
+    lua_register(L, "get_mouse_locked", l_get_mouse_locked);
     lua_register(L, "get_mouse_delta", l_get_mouse_delta);
     lua_register(L, "poll_text_input", l_poll_text_input);
 }

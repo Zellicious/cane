@@ -60,7 +60,7 @@ img:setFilter(min, mag)  -- "nearest" | "linear"
 ## canvas (render target)
 
 ```lua
-canvas = new_canvas(w, h)
+canvas = new_canvas(w, h, msaa)       -- msaa optional, defaults to 0 (e.g. 4 for 4x)
 set_canvas(canvas)            -- nil to draw to screen
 get_active_canvas() -> canvas -- returns active Canvas userdata or nil if screen targeted
 canvas:draw(x, y, w, h)
@@ -147,14 +147,16 @@ is_mouse_down(button)  -- 1=left, 2=right, 3=middle
 get_scroll() -> dx, dy  -- accumulated scroll delta since the last call, then reset
 set_cursor_visible(bool)
 
+set_mouse_locked(bool)
+-- locks the cursor to the window and hides it (enables raw motion).
+-- use get_mouse_delta() for movement while locked.
+get_mouse_locked() -> bool
+
 set_mouse_relative(bool)
--- locks and hides the cursor, enabling raw motion input where the
--- platform supports it (bypasses OS pointer acceleration). While
--- enabled, get_mouse_pos() returns an unbounded virtual position, not
--- real screen coordinates — use get_mouse_delta() instead.
+-- alias for set_mouse_locked.
 get_mouse_delta() -> dx, dy
 -- motion since the last call. Call once per frame (e.g. from update())
--- while set_mouse_relative(true) is active.
+-- while set_mouse_locked(true) is active.
 
 poll_text_input() -> string
 -- returns typed characters (ASCII) queued since the last call, then clears
