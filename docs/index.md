@@ -176,3 +176,71 @@ read_file(name) -> string or nil
 ## modules
 
 `require("modname")` resolves `modname.lua` or `modname/init.lua` relative to the game root (works identically in fused and loose builds).
+
+## threads
+
+workers run in their own pthread with their own `lua_State`. they cannot touch graphics, audio, input, or the window - those are main-thread only. use them for heavy cpu work. 
+threads communicate by passing serialized strings through thread-safe queues; never share lua tables across threads directly.
+
+```lua
+
+worker = new_thread(script_path)
+-- spawns a new thread that loads and runs script_path via the VFS.
+-- returns a Thread userdata.
+
+worker:send(string) -> bool
+-- pushes a string into the worker's input queue. returns false if the
+-- worker has already exited.
+
+worker:receive() -> string or nil
+-- pops a string from the worker's output queue (non-blocking).
+-- returns nil if the queue is empty OR the worker has exited.
+
+worker:isRunning() -> bool
+-- false once the worker script returns or crashes.
+
+worker:stop()
+-- closes the workers input queue, which unblocks a worker stuck in
+-- thread.receive(). the worker will then see nil from receive() and
+-- can exit cleanly.
+
+```
+
+inside the worker script, a global `thread` table is available:
+
+```lua
+
+thread.send(string)
+-- send a message back to the main thread.
+
+thread.receive(block) -> string or nil
+-- if block is true/omitted, waits for a message. if false, returns
+-- immediately with nil if the queue is empty. returns nil when the
+-- main thread has called worker:stop() or the main state is closing.
+
+```
+
+typical pattern:
+
+```lua
+-- main.lua
+local worker = new_thread("worker.lua")
+function update(dt)
+    local msg = worker:receive()
+    if msg then handle_result(msg) end
+    if need_work then worker:send(serialize.pack("job", data)) end
+end
+
+-- worker.lua
+while true do
+    local msg = thread.receive()
+    if not msg then break end
+    local kind, data = serialize.unpack(msg)
+    -- do expensive work...
+    thread.send(serialize.pack("result", result))
+end
+
+```
+
+workers have access to: `math`, `string`, `table`, `os`, `require` (via VFS), `read_file`, `write_file`. 
+they do not have access to: `new_image`, `new_mesh`, `draw_*`, `new_sound`, `get_mouse_*`, `is_key_down`, window functions, or anything else that touches OpenGL / GLFW / miniaudio.

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "audio.h"
+#include "threads.h"
 #include "vfs.h"
 
 static GLFWwindow *s_window = NULL;
@@ -897,6 +898,55 @@ static int l_read_file(lua_State *L) {
     return 1;
 }
 
+typedef struct { LuaThread* t; } ThreadUD;
+
+static int l_new_thread(lua_State* L) {
+    const char* path = luaL_checkstring(L, 1);
+    LuaThread* t = thread_new(path);
+    if (!t) { lua_pushnil(L); return 1; }
+    ThreadUD* ud = lua_newuserdata(L, sizeof(ThreadUD));
+    ud->t = t;
+    luaL_getmetatable(L, "Thread");
+    lua_setmetatable(L, -2);
+    return 1;
+}
+static int l_thread_send(lua_State* L) {
+    ThreadUD* ud = luaL_checkudata(L, 1, "Thread");
+    lua_pushboolean(L, thread_send(ud->t, luaL_checkstring(L, 2)));
+    return 1;
+}
+static int l_thread_receive(lua_State *L) {
+    ThreadUD* ud = luaL_checkudata(L, 1, "Thread");
+    bool block = lua_isnoneornil(L, 2) ? false : lua_toboolean(L, 2);
+    char* msg = thread_receive_blocking(ud->t, block);
+    if (msg) { lua_pushstring(L, msg); free(msg); } else lua_pushnil(L);
+    return 1;
+}
+static int l_thread_running(lua_State* L) {
+    ThreadUD* ud = luaL_checkudata(L, 1, "Thread");
+    lua_pushboolean(L, thread_is_running(ud->t));
+    return 1;
+}
+static int l_thread_stop(lua_State* L) {
+    ThreadUD* ud = luaL_checkudata(L, 1, "Thread");
+    thread_stop(ud->t);
+    return 0;
+}
+static int l_thread_gc(lua_State* L) {
+    ThreadUD* ud = luaL_checkudata(L, 1, "Thread");
+    if (ud->t) { thread_free(ud->t); ud->t = NULL; }
+    return 0;
+}
+
+static const luaL_Reg thread_methods[] = {
+    {"send",       l_thread_send},
+    {"receive",    l_thread_receive},
+    {"isRunning",  l_thread_running},
+    {"stop",       l_thread_stop},
+    {"__gc",       l_thread_gc},
+    {NULL, NULL}
+};
+
 void lua_api_register(lua_State *L, GLFWwindow *window) {
     s_window = window;
 
@@ -955,6 +1005,9 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "get_mouse_locked", l_get_mouse_locked);
     lua_register(L, "get_mouse_delta", l_get_mouse_delta);
     lua_register(L, "poll_text_input", l_poll_text_input);
+
+    register_type(L, "Thread", thread_methods);
+    lua_register(L, "new_thread", l_new_thread);
 }
 
 static int traceback_handler(lua_State *L) {
