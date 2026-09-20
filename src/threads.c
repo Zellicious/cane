@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 
-// --- thread-safe message queue ---
+// thread-safe message queue
 typedef struct MsgNode {
     char* msg;
     struct MsgNode* next;
@@ -71,7 +71,6 @@ static void queue_close(MsgQueue* q) {
     pthread_mutex_unlock(&q->mutex);
 }
 
-// --- thread struct ---
 struct LuaThread {
     pthread_t  handle;
     MsgQueue   to_worker;   // main -> worker
@@ -83,7 +82,6 @@ struct LuaThread {
 
 typedef struct { LuaThread* thread; } WorkerCtx;
 
-// worker-side Lua API
 static int w_send(lua_State* L) {
     WorkerCtx* ctx = lua_touserdata(L, lua_upvalueindex(1));
     const char* msg = luaL_checkstring(L, 1);

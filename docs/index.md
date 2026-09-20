@@ -1,5 +1,7 @@
 # engine API reference
 
+api is currently very limited.
+
 see also: [dependencies](dependencies.md)
 
 ## config
@@ -49,10 +51,6 @@ img = new_image(path)
 img:draw(x, y, scale)
 img:drawShader(x, y, scale, shader)  -- shader optional, nil = default
 img:drawQuad(sx, sy, sw, sh, dx, dy, scale, shader)
--- draws a sub-rectangle of the image (source coords in pixels, top-left origin)
--- at (dx, dy). scale and shader both optional. this is the sprite-sheet /
--- tile-atlas primitive — img:draw always draws the whole texture, this draws
--- one frame of it.
 img:getWidth() / img:getHeight()
 img:setFilter(min, mag)  -- "nearest" | "linear"
 ```
@@ -60,7 +58,7 @@ img:setFilter(min, mag)  -- "nearest" | "linear"
 ## canvas (render target)
 
 ```lua
-canvas = new_canvas(w, h, msaa)       -- msaa optional, defaults to 0 (e.g. 4 for 4x)
+canvas = new_canvas(w, h, msaa)       -- msaa optional, defaults to 0
 set_canvas(canvas)            -- nil to draw to screen
 get_active_canvas() -> canvas -- returns active Canvas userdata or nil if screen targeted
 canvas:draw(x, y, w, h)
@@ -72,7 +70,7 @@ canvas:setFilter(min, mag)
 
 vertex table fields: `x,y,z, u,v, r,g,b,a, nx,ny,nz,nw` (all optional except x/y/z; color defaults white, uv defaults 0, nx/ny/nz/nw default 0).
 
-`nx,ny,nz,nw` is a generic per-vertex vec4 slot bound at shader attribute `location = 3`. By convention used for a normal (`nw` unused), but it's just raw per-vertex data — usable for anything a shader wants to read per-vertex (packed flags, weights, whatever). A shader that doesn't declare `layout(location = 3)` simply ignores it; no need to fill it in if you're not using it.
+`nx,ny,nz,nw` is a generic per-vertex vec4 slot bound at shader attribute `location = 3`. will persist until custom vertex attributes are added.
 
 ```lua
 mesh = new_mesh(vertices, mode)  -- mode: "triangles" | "lines" | "line_loop" | "triangle_fan" | "triangle_strip"
@@ -86,7 +84,7 @@ mesh:draw(image, shader)  -- both optional
 shader = new_shader(vert_path, frag_path)
 shader:send(name, ...)     -- 1-4 numbers -> float/vec2/vec3/vec4; a 9 or 16-length table -> mat3/mat4
 shader:sendTexture(name, image, unit)  -- unit optional, defaults to 1
-                                        -- (unit 0 is the mesh's own implicit texture, set via mesh:draw(image, shader))
+                                        -- (unit 0 is the meshes own implicit texture, set via mesh:draw(image, shader))
 shader:sendInt(name, value)
 set_shader(shader)  -- nil resets to default; affects all drawing until changed
 ```
@@ -106,13 +104,8 @@ set_font(font)                     -- nil resets to default font
 set_ortho()                                  -- 2D screen-space (default)
 set_perspective(fovy_deg, near, far)
 set_camera(x, y, z)                          -- translate-only
-set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- fly camera, angles in degrees
-set_camera_lookat(eye_x, eye_y, eye_z, target_x, target_y, target_z)
--- positions the camera at (eye_x,eye_y,eye_z) looking directly at
--- (target_x,target_y,target_z). Simpler than set_camera_look when you
--- already know the point you want centered in view — e.g. a boxing-ring
--- camera tracking the midpoint between two fighters — rather than working
--- out yaw/pitch by hand.
+set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- interesting rotation layout
+set_camera_lookat(eye_x, eye_y, eye_z, target_x, target_y, target_z) -- name explains itself
 ```
 
 ## audio
@@ -138,9 +131,6 @@ set_audio_listener_velocity(vel_x, vel_y, vel_z)
 
 ```lua
 is_key_down(name) -> bool
--- names: single letters/digits, "space", "up"/"down"/"left"/"right",
--- "ctrl"/"lctrl"/"rctrl", "shift"/"lshift"/"rshift", "alt"/"lalt"/"ralt",
--- "tab", "return", "escape", "backspace"
 
 get_mouse_pos() -> x, y
 is_mouse_down(button)  -- 1=left, 2=right, 3=middle
@@ -148,20 +138,12 @@ get_scroll() -> dx, dy  -- accumulated scroll delta since the last call, then re
 set_cursor_visible(bool)
 
 set_mouse_locked(bool)
--- locks the cursor to the window and hides it (enables raw motion).
--- use get_mouse_delta() for movement while locked.
 get_mouse_locked() -> bool
 
 set_mouse_relative(bool)
--- alias for set_mouse_locked.
 get_mouse_delta() -> dx, dy
--- motion since the last call. Call once per frame (e.g. from update())
--- while set_mouse_locked(true) is active.
 
 poll_text_input() -> string
--- returns typed characters (ASCII) queued since the last call, then clears
--- the queue. Use for text input boxes; is_key_down alone can't distinguish
--- shifted/symbol characters the way this can.
 ```
 
 ## saving / loading
@@ -189,20 +171,16 @@ worker = new_thread(script_path)
 -- returns a Thread userdata.
 
 worker:send(string) -> bool
--- pushes a string into the worker's input queue. returns false if the
--- worker has already exited.
+-- pushes a string into the worker's input queue. returns false if the worker has already exited.
 
 worker:receive() -> string or nil
--- pops a string from the worker's output queue (non-blocking).
--- returns nil if the queue is empty OR the worker has exited.
+-- pops a string from the worker's output queue (non-blocking). returns nil if the queue is empty OR the worker has exited.
 
 worker:isRunning() -> bool
 -- false once the worker script returns or crashes.
 
 worker:stop()
--- closes the workers input queue, which unblocks a worker stuck in
--- thread.receive(). the worker will then see nil from receive() and
--- can exit cleanly.
+-- closes the workers input queue, which unblocks a worker stuck in thread.receive(). the worker will then see nil from receive() and can exit cleanly.
 
 ```
 
@@ -214,9 +192,7 @@ thread.send(string)
 -- send a message back to the main thread.
 
 thread.receive(block) -> string or nil
--- if block is true/omitted, waits for a message. if false, returns
--- immediately with nil if the queue is empty. returns nil when the
--- main thread has called worker:stop() or the main state is closing.
+-- if block is true/omitted, waits for a message. if false, returns immediately with nil if the queue is empty. returns nil when the main thread has called worker:stop() or the main state is closing.
 
 ```
 
