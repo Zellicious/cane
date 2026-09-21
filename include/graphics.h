@@ -10,22 +10,22 @@
 #define MAX_VERTEX_ATTRS 8
 
 typedef enum {
-    ATTR_FLOAT = 0, // 1 float
-    ATTR_VEC2  = 1, // 2 floats
-    ATTR_VEC3  = 2, // 3 floats
-    ATTR_VEC4  = 3  // 4 floats
+    ATTR_FLOAT = 0,
+    ATTR_VEC2  = 1,
+    ATTR_VEC3  = 2,
+    ATTR_VEC4  = 3
 } AttrType;
 
 typedef struct {
-    int location;   // OpenGL attribute location (0-7)
-    int type;       // AttrType
-    int offset;     // Byte offset from start of vertex
+    int location;
+    int type;
+    int offset;
 } VertexAttr;
 
 typedef struct {
     VertexAttr attrs[MAX_VERTEX_ATTRS];
     int attr_count;
-    int stride;     // Total bytes per vertex
+    int stride;
 } VertexLayout;
 
 typedef struct {
@@ -59,7 +59,6 @@ void gfx_canvas_set_filter(Canvas *c, const char *min_filter, const char *mag_fi
 
 float gfx_get_text_width(const char *text, float scale);
 
-// Legacy vertex struct for backward compatibility
 typedef struct {
     float x, y, z, u, v, r, g, b, a;
     float nx, ny, nz, nw;
@@ -70,10 +69,10 @@ typedef struct {
     GLuint vbo;
     int vertex_count;
     GLenum draw_mode;
-    VertexLayout layout; // Stores the layout for dynamic updates
+    VertexLayout layout;
 } Mesh;
 
-// Updated to accept optional layout (NULL = legacy Vertex format)
+
 Mesh* gfx_mesh_new(void *data, int count, GLenum mode, const VertexLayout *layout);
 void gfx_mesh_set_vertices(Mesh *m, void *data, int count);
 void gfx_mesh_free(Mesh *m);
