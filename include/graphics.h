@@ -4,15 +4,35 @@
 #include <glad/glad.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "shader.h"
+
+#define MAX_VERTEX_ATTRS 8
+
+typedef enum {
+    ATTR_FLOAT = 0, // 1 float
+    ATTR_VEC2  = 1, // 2 floats
+    ATTR_VEC3  = 2, // 3 floats
+    ATTR_VEC4  = 3  // 4 floats
+} AttrType;
+
+typedef struct {
+    int location;   // OpenGL attribute location (0-7)
+    int type;       // AttrType
+    int offset;     // Byte offset from start of vertex
+} VertexAttr;
+
+typedef struct {
+    VertexAttr attrs[MAX_VERTEX_ATTRS];
+    int attr_count;
+    int stride;     // Total bytes per vertex
+} VertexLayout;
 
 typedef struct {
     int width, height;
     GLuint fbo;
     GLuint texture;
     GLuint depth_rbo;
-    
-    // MSAA specific
     bool is_msaa;
     GLuint msaa_color_rbo;
     GLuint resolve_fbo;
@@ -33,12 +53,13 @@ Image* gfx_image_load(const char *path);
 void gfx_image_free(Image *img);
 void gfx_draw_image(Image *img, float x, float y, float scale);
 void gfx_draw_image_shader(Image *img, float x, float y, float scale, Shader *shader);
-
+void gfx_draw_image_quad(Image *img, float sx, float sy, float sw, float sh, float dx, float dy, float scale, Shader *shader);
 void gfx_image_set_filter(Image *img, const char *min_filter, const char *mag_filter);
 void gfx_canvas_set_filter(Canvas *c, const char *min_filter, const char *mag_filter);
 
 float gfx_get_text_width(const char *text, float scale);
 
+// Legacy vertex struct for backward compatibility
 typedef struct {
     float x, y, z, u, v, r, g, b, a;
     float nx, ny, nz, nw;
@@ -48,12 +69,13 @@ typedef struct {
     GLuint vao;
     GLuint vbo;
     int vertex_count;
-    int capacity;      // allocated vertex slots in the VBO (for reuse without realloc)
     GLenum draw_mode;
+    VertexLayout layout; // Stores the layout for dynamic updates
 } Mesh;
 
-Mesh* gfx_mesh_new(Vertex *vertices, int count, GLenum mode);
-void gfx_mesh_set_vertices(Mesh *m, Vertex *vertices, int count);
+// Updated to accept optional layout (NULL = legacy Vertex format)
+Mesh* gfx_mesh_new(void *data, int count, GLenum mode, const VertexLayout *layout);
+void gfx_mesh_set_vertices(Mesh *m, void *data, int count);
 void gfx_mesh_free(Mesh *m);
 
 void gfx_draw_mesh(Mesh *m, GLuint texture);
@@ -78,15 +100,11 @@ void gfx_set_camera_lookat(float x1, float y1, float z1, float x2, float y2, flo
 void gfx_set_shader(Shader *shader);
 
 Shader* gfx_default_shader(void);
+void gfx_clear_shader_if_active(Shader *shader);
 
 typedef struct Font Font;
-
 Font* gfx_font_load(const char *path, int pixel_size);
 void gfx_font_free(Font *font);
-void gfx_set_font(Font *font); // NULL = embedded default font
-
-void gfx_draw_image_quad(Image *img, float sx, float sy, float sw, float sh,
-                          float dx, float dy, float scale, Shader *shader);
-void gfx_clear_shader_if_active(Shader *shader);
+void gfx_set_font(Font *font);
 
 #endif
