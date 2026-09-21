@@ -68,16 +68,61 @@ canvas:setFilter(min, mag)
 
 ## mesh (3d)
 
-vertex table fields: `x,y,z, u,v, r,g,b,a, nx,ny,nz,nw` (all optional except x/y/z; color defaults white, uv defaults 0, nx/ny/nz/nw default 0).
+meshes support two vertex formats: a legacy table-of-tables format, and a custom layout format using flat arrays. the engine automatically detects which format you are using based on the first argument.
 
-`nx,ny,nz,nw` is a generic per-vertex vec4 slot bound at shader attribute `location = 3`. will persist until custom vertex attributes are added.
+### legacy format
+if the first argument is a table of vertex tables, it uses the default built-in layout. 
+vertex fields: `x,y,z, u,v, r,g,b,a, nx,ny,nz,nw` (all optional except x/y/z; color defaults white, uv defaults 0, normals default 0).
+
+`nx,ny,nz,nw` is a generic per-vertex vec4 slot bound at shader attribute `location = 3`.
 
 ```lua
-mesh = new_mesh(vertices, mode)  -- mode: "triangles" | "lines" | "line_loop" | "triangle_fan" | "triangle_strip"
-mesh:setVertices(vertices)
-mesh:draw(image, shader)  -- both optional
+local verts = {
+    {x = -1, y = -1, z = 0, u = 0, v = 0, r = 1, g = 0, b = 0, a = 1},
+    {x =  1, y = -1, z = 0, u = 1, v = 0, r = 0, g = 1, b = 0, a = 1},
+    {x =  0, y =  1, z = 0, u = 0, v = 1, r = 0, g = 0, b = 1, a = 1}
+}
+local mesh = new_mesh(verts, "triangles")
 ```
 
+### custom layout format
+if the first argument is a table containing layout definitions (objects with a `loc` field), it uses the custom format. this allows you to define arbitrary vertex attributes and pass a single flat array of numbers, which is much faster for the engine to parse and upload to the gpu.
+
+supported layout types: `"float"` (1), `"vec2"` (2), `"vec3"` (3), `"vec4"` (4).
+
+```lua
+-- 1. define the layout
+local my_layout = {
+    {loc = 0, type = "vec3"}, -- position
+    {loc = 1, type = "vec3"}, -- normal
+    {loc = 2, type = "float"} -- custom heat data
+}
+
+-- 2. provide a flat array of numbers matching the layout stride 
+-- (3 + 3 + 1 = 7 floats per vertex)
+local flat_verts = {
+    -1, -1, -1,   0, 0, 1,   0.5,
+     1, -1, -1,   0, 0, 1,   0.8,
+     1,  1, -1,   0, 0, 1,   0.2
+}
+
+local mesh = new_mesh(my_layout, flat_verts, "triangles")
+```
+
+### methods
+
+```lua
+mesh = new_mesh(vertices, mode) 
+-- or
+mesh = new_mesh(layout, flat_vertices, mode)
+-- mode: "triangles" | "lines" | "line_loop" | "triangle_fan" | "triangle_strip"
+
+mesh:setVertices(vertices) 
+-- accepts either the legacy table-of-tables or the flat array. 
+-- it automatically detects the format and matches the mesh's original layout.
+
+mesh:draw(image, shader)  -- both optional
+```
 ## shader
 
 ```lua
