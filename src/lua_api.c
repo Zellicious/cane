@@ -869,6 +869,11 @@ static int l_set_color(lua_State *L) {
                   (float)luaL_optnumber(L, 4, 1.0));
     return 0;
 }
+static int l_set_face_cull(lua_State *L) {
+    const char *mode = luaL_optstring(L, 1, "back");
+    gfx_set_face_cull(mode);
+    return 0;
+}
 static int l_clear(lua_State *L) {
     gfx_clear(
         (float)luaL_optnumber(L, 1, 0.0), (float)luaL_optnumber(L, 2, 0.0),
@@ -1010,6 +1015,7 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "new_canvas", l_canvas_new);
     lua_register(L, "new_canvas_fmt", l_canvas_new_fmt);
     lua_register(L, "set_canvas", l_set_canvas);
+    lua_register(L, "set_face_cull", l_set_face_cull);
     lua_register(L, "get_active_canvas", l_get_active_canvas);
     lua_register(L, "new_mesh", l_mesh_new);
     lua_register(L, "new_shader", l_shader_new);

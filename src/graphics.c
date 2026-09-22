@@ -968,6 +968,21 @@ void gfx_set_color(float r, float g, float b, float a) {
     cur_color[2] = b;
     cur_color[3] = a;
 }
+void gfx_set_face_cull(const char *mode) {
+    if (!mode || strcmp(mode, "none") == 0) {
+        glDisable(GL_CULL_FACE);
+    } else {
+        glEnable(GL_CULL_FACE);
+        if (strcmp(mode, "front") == 0) {
+            glCullFace(GL_FRONT);
+        } else if (strcmp(mode, "front_and_back") == 0) {
+            glCullFace(GL_FRONT_AND_BACK);
+        } else {
+            // Default to back-face culling
+            glCullFace(GL_BACK);
+        }
+    }
+}
 void gfx_clear(float r, float g, float b, float a) {
     glClearColor(r, g, b, a);
     glClear(g_depth_enabled ? (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)

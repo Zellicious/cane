@@ -100,6 +100,7 @@ void gfx_set_camera(float x, float y, float z);
 void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg);
 void gfx_set_camera_lookat(float x1, float y1, float z1, float x2, float y2, float z2);
 void gfx_set_shader(Shader *shader);
+void gfx_set_face_cull(const char *mode);
 
 Shader* gfx_default_shader(void);
 void gfx_clear_shader_if_active(Shader *shader);
