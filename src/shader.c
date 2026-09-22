@@ -137,3 +137,7 @@ void shader_set_texture(Shader *s, const char *name, GLuint texture_id, int unit
     GLint loc = shader_uniform(s, name);
     if (loc >= 0) glUniform1i(loc, unit);
 }
+void shader_set_canvas(Shader *s, const char *name, Canvas *canvas, int unit) {
+    if (!canvas || !canvas->texture) return;
+    shader_set_texture(s, name, canvas->texture, unit);
+}

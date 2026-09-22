@@ -339,6 +339,22 @@ void gfx_set_projection(int width, int height) {
     glDisable(GL_DEPTH_TEST);
 }
 
+void gfx_set_ortho_projection(float left, float right, float bottom, float top,
+                              float near_val, float far_val) {
+    if (g_active_canvas) {
+        glViewport(0, 0, g_active_canvas->width, g_active_canvas->height);
+    } else {
+        int w = g_app.config.width, h = g_app.config.height;
+        if (g_app.window) glfwGetWindowSize(g_app.window, &w, &h);
+        glViewport(0, 0, w, h);
+    }
+
+    mat4_ortho(g_cur_proj, left, right, bottom, top, near_val, far_val);
+    
+    g_depth_enabled = true;
+    glEnable(GL_DEPTH_TEST);
+}
+
 void gfx_set_perspective(int width, int height, float fovy_deg, float near,
                          float far) {
     if (g_active_canvas) {
@@ -426,6 +442,233 @@ void gfx_clear_shader_if_active(Shader *shader) {
         g_active_shader = NULL;
 }
 Shader *gfx_default_shader(void) { return g_main_shader; }
+
+// ============================================================================
+// Canvas format parsing
+// ============================================================================
+typedef struct {
+    GLint internal_format;
+    GLenum pixel_format;
+    GLenum pixel_type;
+    bool has_color;
+    bool depth_only;
+    bool has_stencil;
+} CanvasFormat;
+
+static bool parse_canvas_format(const char *fmt, CanvasFormat *out) {
+    if (!fmt || !out) return false;
+    memset(out, 0, sizeof(CanvasFormat));
+
+    // Lowercase copy
+    char buf[32];
+    size_t len = strlen(fmt);
+    if (len >= sizeof(buf)) return false;
+    for (size_t i = 0; i < len; i++)
+        buf[i] = (fmt[i] >= 'A' && fmt[i] <= 'Z') ? fmt[i] + 32 : fmt[i];
+    buf[len] = '\0';
+
+    // Check for depth-attachment suffix on color formats
+    bool want_depth = false;
+    if (len > 0 && buf[len - 1] == 'd') {
+        want_depth = true;
+        buf[--len] = '\0';
+    }
+
+    if (strcmp(buf, "rgba8") == 0) {
+        out->internal_format = GL_RGBA8;
+        out->pixel_format = GL_RGBA;
+        out->pixel_type = GL_UNSIGNED_BYTE;
+        out->has_color = true;
+    } else if (strcmp(buf, "rgb8") == 0) {
+        out->internal_format = GL_RGB8;
+        out->pixel_format = GL_RGB;
+        out->pixel_type = GL_UNSIGNED_BYTE;
+        out->has_color = true;
+    } else if (strcmp(buf, "rg8") == 0) {
+        out->internal_format = GL_RG8;
+        out->pixel_format = GL_RG;
+        out->pixel_type = GL_UNSIGNED_BYTE;
+        out->has_color = true;
+    } else if (strcmp(buf, "r8") == 0) {
+        out->internal_format = GL_R8;
+        out->pixel_format = GL_RED;
+        out->pixel_type = GL_UNSIGNED_BYTE;
+        out->has_color = true;
+    } else if (strcmp(buf, "rgba16f") == 0) {
+        out->internal_format = GL_RGBA16F;
+        out->pixel_format = GL_RGBA;
+        out->pixel_type = GL_HALF_FLOAT;
+        out->has_color = true;
+    } else if (strcmp(buf, "rgba32f") == 0) {
+        out->internal_format = GL_RGBA32F;
+        out->pixel_format = GL_RGBA;
+        out->pixel_type = GL_FLOAT;
+        out->has_color = true;
+    } else if (strcmp(buf, "r16f") == 0) {
+        out->internal_format = GL_R16F;
+        out->pixel_format = GL_RED;
+        out->pixel_type = GL_HALF_FLOAT;
+        out->has_color = true;
+    } else if (strcmp(buf, "r32f") == 0) {
+        out->internal_format = GL_R32F;
+        out->pixel_format = GL_RED;
+        out->pixel_type = GL_FLOAT;
+        out->has_color = true;
+    } else if (strcmp(buf, "depth24") == 0) {
+        out->internal_format = GL_DEPTH_COMPONENT24;
+        out->pixel_format = GL_DEPTH_COMPONENT;
+        out->pixel_type = GL_UNSIGNED_INT;
+        out->depth_only = true;
+    } else if (strcmp(buf, "depth32f") == 0) {
+        out->internal_format = GL_DEPTH_COMPONENT32F;
+        out->pixel_format = GL_DEPTH_COMPONENT;
+        out->pixel_type = GL_FLOAT;
+        out->depth_only = true;
+    } else if (strcmp(buf, "depth24stencil8") == 0) {
+        out->internal_format = GL_DEPTH24_STENCIL8;
+        out->pixel_format = GL_DEPTH_STENCIL;
+        out->pixel_type = GL_UNSIGNED_INT_24_8;
+        out->depth_only = true;
+        out->has_stencil = true;
+    } else {
+        fprintf(stderr, "canvas: unknown format '%s'\n", fmt);
+        return false;
+    }
+
+    // Depth-only formats already have depth; ignore 'd' suffix
+    if (out->depth_only) want_depth = false;
+
+    // Store whether caller wants a depth attachment alongside color
+    // We reuse has_stencil as a flag only for stencil; use a local trick:
+    // depth_only formats never need extra depth_rbo
+    // Color formats: want_depth controls whether we add depth_rbo
+    // We'll pass want_depth through by abusing has_stencil for color+depth
+    // Actually cleaner: just return it via a separate mechanism.
+    // Simplest: color formats always get depth_rbo (matching existing behavior),
+    // so want_depth just means "explicitly requested" — but since existing
+    // gfx_canvas_new always adds depth, we keep that default.
+    // The 'd' suffix is effectively a no-op for color formats since they
+    // always get depth. It's only meaningful if we later add color-only formats.
+    (void)want_depth;
+
+    return true;
+}
+
+Canvas *gfx_canvas_new_fmt(int width, int height, int samples, const char *format) {
+    CanvasFormat fmt;
+    if (!parse_canvas_format(format, &fmt)) {
+        fprintf(stderr, "canvas_new_fmt: falling back to rgba8\n");
+        return gfx_canvas_new(width, height, samples);
+    }
+
+    Canvas *c = calloc(1, sizeof(Canvas));
+    if (!c) return NULL;
+    c->width = width;
+    c->height = height;
+    c->is_msaa = (samples > 0);
+
+    glGenFramebuffers(1, &c->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
+
+    if (fmt.depth_only) {
+        // ==================================================================
+        // DEPTH-ONLY: texture is the depth attachment (sampleable)
+        // ==================================================================
+        c->texture = 0;
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+
+        glGenTextures(1, &c->texture);
+        glBindTexture(GL_TEXTURE_2D, c->texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, fmt.internal_format,
+                     width, height, 0, fmt.pixel_format, fmt.pixel_type, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        float border[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (c->is_msaa) {
+            // MSAA depth-only: use renderbuffer, resolve not applicable
+            glGenRenderbuffers(1, &c->msaa_color_rbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, c->msaa_color_rbo);
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
+                fmt.has_stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT24,
+                width, height);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            GLenum attach = fmt.has_stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, attach,
+                                      GL_RENDERBUFFER, c->msaa_color_rbo);
+        } else {
+            GLenum attach = fmt.has_stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+            glFramebufferTexture2D(GL_FRAMEBUFFER, attach,
+                                   GL_TEXTURE_2D, c->texture, 0);
+        }
+
+        c->depth_rbo = 0; // No separate depth RBO needed
+
+    } else {
+        // ==================================================================
+        // COLOR FORMAT: texture is the color attachment
+        // ==================================================================
+        glGenTextures(1, &c->texture);
+        glBindTexture(GL_TEXTURE_2D, c->texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, fmt.internal_format,
+                     width, height, 0, fmt.pixel_format, fmt.pixel_type, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (c->is_msaa) {
+            glGenRenderbuffers(1, &c->msaa_color_rbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, c->msaa_color_rbo);
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
+                                             fmt.internal_format, width, height);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                      GL_RENDERBUFFER, c->msaa_color_rbo);
+
+            glGenRenderbuffers(1, &c->depth_rbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, c->depth_rbo);
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
+                                             GL_DEPTH_COMPONENT24, width, height);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                      GL_RENDERBUFFER, c->depth_rbo);
+
+            glGenFramebuffers(1, &c->resolve_fbo);
+            glBindFramebuffer(GL_FRAMEBUFFER, c->resolve_fbo);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D, c->texture, 0);
+        } else {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D, c->texture, 0);
+
+            glGenRenderbuffers(1, &c->depth_rbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, c->depth_rbo);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24,
+                                  width, height);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                      GL_RENDERBUFFER, c->depth_rbo);
+        }
+    }
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "canvas_new_fmt: framebuffer incomplete for '%s'\n", format);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // Reuse existing free which handles all fields
+        gfx_canvas_free(c);
+        return NULL;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return c;
+}
 
 Canvas *gfx_canvas_new(int width, int height, int samples) {
     Canvas *c = calloc(1, sizeof(Canvas));

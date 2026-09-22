@@ -387,6 +387,22 @@ static int l_canvas_new(lua_State *L) {
     lua_setmetatable(L, -2);
     return 1;
 }
+static int l_canvas_new_fmt(lua_State *L) {
+    Canvas *c = gfx_canvas_new_fmt(
+        (int)luaL_checkinteger(L, 1),
+        (int)luaL_checkinteger(L, 2),
+        (int)luaL_optinteger(L, 4, 0),
+        luaL_checkstring(L, 3));
+    if (!c) {
+        lua_pushnil(L);
+        return 1;
+    }
+    Canvas **ud = lua_newuserdata(L, sizeof(Canvas *));
+    *ud = c;
+    luaL_getmetatable(L, "Canvas");
+    lua_setmetatable(L, -2);
+    return 1;
+}
 static int l_canvas_gc(lua_State *L) {
     Canvas **ud = luaL_checkudata(L, 1, "Canvas");
     gfx_canvas_free(*ud);
@@ -759,9 +775,19 @@ static int l_shader_send_texture(lua_State *L) {
                        (int)luaL_optinteger(L, 4, 1));
     return 0;
 }
+static int l_shader_send_canvas(lua_State *L) {
+    Shader **ud = luaL_checkudata(L, 1, "Shader");
+    Canvas **cud = luaL_checkudata(L, 3, "Canvas");
+    
+    shader_use(*ud);
+    shader_set_texture(*ud, luaL_checkstring(L, 2), (*cud)->texture,
+                       (int)luaL_optinteger(L, 4, 1));
+    return 0;
+}
 static const luaL_Reg shader_methods[] = {
     {"send", l_shader_send},
     {"sendTexture", l_shader_send_texture},
+    {"sendCanvas", l_shader_send_canvas},
     {"sendInt", l_shader_send_int},
     {"__gc", l_shader_gc},
     {NULL, NULL}};
@@ -798,12 +824,25 @@ static int l_set_perspective(lua_State *L) {
     return 0;
 }
 static int l_set_ortho(lua_State *L) {
-    int w = g_app.config.width, h = g_app.config.height;
-    if (s_window)
-        glfwGetWindowSize(s_window, &w, &h);
-    gfx_set_projection(w, h);
+    if (lua_gettop(L) >= 6) {
+        // Custom ortho: set_ortho(left, right, bottom, top, near, far)
+        float left     = (float)luaL_checknumber(L, 1);
+        float right    = (float)luaL_checknumber(L, 2);
+        float bottom   = (float)luaL_checknumber(L, 3);
+        float top      = (float)luaL_checknumber(L, 4);
+        float near_val = (float)luaL_checknumber(L, 5);
+        float far_val  = (float)luaL_checknumber(L, 6);
+        gfx_set_ortho_projection(left, right, bottom, top, near_val, far_val);
+    } else {
+        // Default: window-sized screen-space ortho (backward compatible)
+        int w = g_app.config.width, h = g_app.config.height;
+        if (s_window)
+            glfwGetWindowSize(s_window, &w, &h);
+        gfx_set_projection(w, h);
+    }
     return 0;
 }
+
 static int l_set_camera(lua_State *L) {
     gfx_set_camera((float)luaL_optnumber(L, 1, 0.0),
                    (float)luaL_optnumber(L, 2, 0.0),
@@ -969,6 +1008,7 @@ void lua_api_register(lua_State *L, GLFWwindow *window) {
     lua_register(L, "new_font", l_font_new);
     lua_register(L, "set_font", l_set_font);
     lua_register(L, "new_canvas", l_canvas_new);
+    lua_register(L, "new_canvas_fmt", l_canvas_new_fmt);
     lua_register(L, "set_canvas", l_set_canvas);
     lua_register(L, "get_active_canvas", l_get_active_canvas);
     lua_register(L, "new_mesh", l_mesh_new);

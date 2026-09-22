@@ -39,6 +39,7 @@ typedef struct {
 } Canvas;
 
 Canvas* gfx_canvas_new(int width, int height, int samples);
+Canvas* gfx_canvas_new_fmt(int width, int height, int samples, const char *format); // NEW
 void gfx_canvas_free(Canvas *c);
 void gfx_set_canvas(Canvas *c);
 Canvas* gfx_get_active_canvas(void);
@@ -92,6 +93,8 @@ void gfx_cleanup(void);
 void gfx_get_dimensions(int *width, int *height);
 
 void gfx_set_projection(int width, int height);
+void gfx_set_ortho_projection(float left, float right, float bottom, float top,
+                              float near_val, float far_val);
 void gfx_set_perspective(int width, int height, float fovy_deg, float near, float far);
 void gfx_set_camera(float x, float y, float z);
 void gfx_set_camera_look(float x, float y, float z, float yaw_deg, float pitch_deg, float roll_deg);
@@ -105,5 +108,8 @@ typedef struct Font Font;
 Font* gfx_font_load(const char *path, int pixel_size);
 void gfx_font_free(Font *font);
 void gfx_set_font(Font *font);
+
+// messy stuff
+void shader_set_canvas(Shader *s, const char *name, Canvas *canvas, int unit);
 
 #endif
