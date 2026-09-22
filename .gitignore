@@ -9,3 +9,4 @@ cane
 *.zip
 *.7z
 .DS_Store
+.clang-format

@@ -86,7 +86,7 @@ local mesh = new_mesh(verts, "triangles")
 ```
 
 ### custom layout format
-if the first argument is a table containing layout definitions (objects with a `loc` field), it uses the custom format. this allows you to define arbitrary vertex attributes and pass a single flat array of numbers, which is much faster for the engine to parse and upload to the gpu.
+if the first argument is a table containing layout definitions (objects with a `loc` field), it uses the custom format. this allows you to define arbitrary vertex attributes and pass a single flat array of numbers, which is much faster for the engine to parse and upload to the gpu. (i personally recommend this one)
 
 supported layout types: `"float"` (1), `"vec2"` (2), `"vec3"` (3), `"vec4"` (4).
 
