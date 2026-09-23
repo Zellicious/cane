@@ -751,6 +751,13 @@ void gfx_set_canvas(Canvas *c) {
     g_active_canvas = c;
     if (c) {
         glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
+        
+        // If this is a depth-only canvas, ensure draw buffers are none
+        if (c->depth_rbo == 0 && !c->is_msaa) {
+            glDrawBuffer(GL_NONE);
+            glReadBuffer(GL_NONE);
+        }
+        
         glClear(GL_DEPTH_BUFFER_BIT);
         gfx_set_projection(c->width, c->height);
     } else {
