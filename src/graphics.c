@@ -538,17 +538,6 @@ static bool parse_canvas_format(const char *fmt, CanvasFormat *out) {
     // Depth-only formats already have depth; ignore 'd' suffix
     if (out->depth_only) want_depth = false;
 
-    // Store whether caller wants a depth attachment alongside color
-    // We reuse has_stencil as a flag only for stencil; use a local trick:
-    // depth_only formats never need extra depth_rbo
-    // Color formats: want_depth controls whether we add depth_rbo
-    // We'll pass want_depth through by abusing has_stencil for color+depth
-    // Actually cleaner: just return it via a separate mechanism.
-    // Simplest: color formats always get depth_rbo (matching existing behavior),
-    // so want_depth just means "explicitly requested" — but since existing
-    // gfx_canvas_new always adds depth, we keep that default.
-    // The 'd' suffix is effectively a no-op for color formats since they
-    // always get depth. It's only meaningful if we later add color-only formats.
     (void)want_depth;
 
     return true;
@@ -610,9 +599,6 @@ Canvas *gfx_canvas_new_fmt(int width, int height, int samples, const char *forma
         c->depth_rbo = 0; // No separate depth RBO needed
 
     } else {
-        // ==================================================================
-        // COLOR FORMAT: texture is the color attachment
-        // ==================================================================
         glGenTextures(1, &c->texture);
         glBindTexture(GL_TEXTURE_2D, c->texture);
         glTexImage2D(GL_TEXTURE_2D, 0, fmt.internal_format,
@@ -752,7 +738,6 @@ void gfx_set_canvas(Canvas *c) {
     if (c) {
         glBindFramebuffer(GL_FRAMEBUFFER, c->fbo);
         
-        // If this is a depth-only canvas, ensure draw buffers are none
         if (c->depth_rbo == 0 && !c->is_msaa) {
             glDrawBuffer(GL_NONE);
             glReadBuffer(GL_NONE);
@@ -901,7 +886,7 @@ void gfx_canvas_set_filter(Canvas *c, const char *min_f, const char *mag_f) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-// --- UPDATED MESH FUNCTIONS ---
+// UPDATED MESH FUNCTIONS
 Mesh *gfx_mesh_new(void *data, int count, GLenum mode,
                    const VertexLayout *layout) {
     Mesh *m = malloc(sizeof(Mesh));
