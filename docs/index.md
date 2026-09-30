@@ -42,6 +42,7 @@ draw_triangle(mode, x1,y1, x2,y2, x3,y3)
 draw_circle(mode, cx, cy, radius, segments)
 print_text(str, x, y, scale)
 get_text_width(str, scale) -> width  -- for centering/aligning text before drawing it
+set_face_cull(mode)       -- "back" (default), "front", or "none"
 ```
 
 ## images
@@ -59,6 +60,7 @@ img:setFilter(min, mag)  -- "nearest" | "linear"
 
 ```lua
 canvas = new_canvas(w, h, msaa)       -- msaa optional, defaults to 0
+canvas = new_canvas_fmt(w, h, fmt, msaa) -- like new_canvas but with a custom internal format (e.g. "rgba16f")
 set_canvas(canvas)            -- nil to draw to screen
 get_active_canvas() -> canvas -- returns active Canvas userdata or nil if screen targeted
 canvas:draw(x, y, w, h)
@@ -129,7 +131,8 @@ mesh:draw(image, shader)  -- both optional
 shader = new_shader(vert_path, frag_path)
 shader:send(name, ...)     -- 1-4 numbers -> float/vec2/vec3/vec4; a 9 or 16-length table -> mat3/mat4
 shader:sendTexture(name, image, unit)  -- unit optional, defaults to 1
-                                        -- (unit 0 is the meshes own implicit texture, set via mesh:draw(image, shader))
+                                       -- (unit 0 is the meshes own implicit texture, set via mesh:draw(image, shader))
+shader:sendCanvas(name, canvas, unit)  -- binds a canvas as a texture to the shader, unit optional (defaults to 1)
 shader:sendInt(name, value)
 set_shader(shader)  -- nil resets to default; affects all drawing until changed
 ```
@@ -146,7 +149,8 @@ set_font(font)                     -- nil resets to default font
 ## camera / projection
 
 ```lua
-set_ortho()                                  -- 2D screen-space (default)
+set_ortho()                                        -- 2D screen-space (default)
+set_ortho(left, right, bottom, top, near, far)     -- custom orthographic bounds
 set_perspective(fovy_deg, near, far)
 set_camera(x, y, z)                          -- translate-only
 set_camera_look(x, y, z, yaw_deg, pitch_deg, roll_deg)  -- interesting rotation layout
